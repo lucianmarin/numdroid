@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Num</title>
+    <link rel="stylesheet" type="text/css" href="/assets/style.css">
+    <script type="text/javascript" src="/assets/math.js"></script>
+    <script type="text/javascript" src="/assets/script.js"></script>
+</head>
+<body onload="load()">
+<div class="help">
+    <a target="_blank" href="https://mathjs.org/docs/expressions/syntax.html">?</a>
+</div>
+<div class="container">
+    <div class="left">
+			<textarea id="content" rows=1 cols=80 autofocus
+                      oninput="calc(this)" placeholder="Calculate"></textarea>
+    </div>
+    <div class="right">
+        <div id="response"></div>
+    </div>
+</div>
+</body>
+</html>
