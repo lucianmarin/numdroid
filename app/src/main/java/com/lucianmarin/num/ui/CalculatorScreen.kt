@@ -74,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -205,10 +206,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                         .padding(bottom = 88.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    EmptyHistoryPlaceholder(
-                        onLoadDemo = viewModel::resetToDemo,
-                        onOpenSyntax = { viewModel.toggleSyntaxSheet(true) }
-                    )
+                    EmptyHistoryPlaceholder()
                 }
             }
         }
@@ -261,83 +259,92 @@ private fun TopHeaderBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Brand Title + Accent Dot
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { onToggleScope() }
-                ) {
-//                    Box(
-//                        modifier = Modifier
-//                            .size(10.dp)
-//                            .clip(CircleShape)
-//                            .background(colors.accentPink)
-//                    )
-//                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Numeric",
-                        color = colors.accentBlue,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
                 // Action Buttons
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    IconButton(
-                        onClick = onUndo,
-                        enabled = state.canUndo,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Undo,
-                            contentDescription = "Undo",
-                            tint = if (state.canUndo) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f),
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onClear,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteSweep,
-                            contentDescription = "Clear History",
-                            tint = colors.textSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // Syntax Guide Pill Button
+                    val undoColor = if (state.canUndo) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f)
                     Surface(
-                        color = colors.accentOrangeSoft,
+                        color = Color.Transparent,
                         shape = CircleShape,
                         modifier = Modifier
-                            .padding(start = 4.dp)
                             .clip(CircleShape)
-                            .clickable { onOpenSyntax() }
+                            .clickable(enabled = state.canUndo) { onUndo() }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.MenuBook,
-                                contentDescription = "Syntax Reference",
-                                tint = colors.accentOrange,
+                                imageVector = Icons.AutoMirrored.Filled.Undo,
+                                contentDescription = "Undo",
+                                tint = undoColor,
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "Syntax",
-                                color = colors.accentOrange,
+                                text = "Undo",
+                                color = undoColor,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                    }
+
+                    Surface(
+                        color = Color.Transparent,
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { onClear() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteSweep,
+                                contentDescription = "Clear History",
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = "Clear",
+                                color = colors.textSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // Syntax Guide Button
+                Surface(
+                    color = Color.Transparent,
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable { onOpenSyntax() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = "Syntax Reference",
+                            tint = colors.accentOrange,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = "Syntax",
+                            color = colors.accentOrange,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
@@ -858,10 +865,7 @@ private fun BottomCalculatorInputPanel(
 }
 
 @Composable
-private fun EmptyHistoryPlaceholder(
-    onLoadDemo: () -> Unit,
-    onOpenSyntax: () -> Unit
-) {
+private fun EmptyHistoryPlaceholder() {
     val colors = LocalNumColors.current
     Column(
         modifier = Modifier
@@ -876,46 +880,6 @@ private fun EmptyHistoryPlaceholder(
             fontSize = 17.sp,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = "Type a formula in the bottom input bar. Every entry in history stays editable and reactive.",
-            color = colors.textSecondary,
-            fontSize = 13.sp
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(
-                color = colors.accentOrange,
-                shape = CircleShape,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable { onLoadDemo() }
-            ) {
-                Text(
-                    text = "Load Demo Sheet",
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
-                )
-            }
-            Surface(
-                color = colors.bgSurface,
-                shape = CircleShape,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .border(1.dp, colors.borderStrong, CircleShape)
-                    .clickable { onOpenSyntax() }
-            ) {
-                Text(
-                    text = "Browse Syntax",
-                    color = colors.textPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
-                )
-            }
-        }
     }
 }
 
