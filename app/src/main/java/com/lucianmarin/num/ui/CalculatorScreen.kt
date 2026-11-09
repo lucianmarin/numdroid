@@ -14,13 +14,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -57,6 +60,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -89,10 +93,8 @@ import com.lucianmarin.num.math.SyntaxHighlighter
 import com.lucianmarin.num.ui.theme.LocalNumColors
 import com.lucianmarin.num.ui.theme.ThemeMode
 
-private val QUICK_TOKENS = listOf(
-    "ans", "(", ")", "[", "]", "+", "-", "*", "/", "^", "=", ";",
-    "pi", "sqrt(", "sin(", "cos(", "in ", "deg", "i", ":"
-)
+private val LEFT_GUTTER_WIDTH = 42.dp
+private val RIGHT_GUTTER_WIDTH = 40.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +134,6 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             onUndo = viewModel::undo,
             onResetDemo = viewModel::resetToDemo,
             onClear = viewModel::clearHistory,
-            onCycleTheme = viewModel::cycleThemeMode,
             onOpenSyntax = { viewModel.toggleSyntaxSheet(true) },
             onToggleScope = viewModel::toggleScopeBar
         )
@@ -188,14 +189,13 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             }
         }
 
-        // Bottom Single Input Panel (with Quick Token Bar + Input Formula Row + Separate Result Row Below)
+        // Bottom Single Input Panel (Input Formula Row + Separate Result Row Below)
         BottomCalculatorInputPanel(
             currentInput = state.currentInput,
             livePreview = state.livePreview,
             visualTransformation = syntaxVisualTransformation,
             onInputChange = viewModel::onInputChange,
             onSubmit = viewModel::submitCurrentInput,
-            onQuickToken = { token -> viewModel.insertIntoCurrentInput(token) },
             onCopyPreview = { text -> copyToClipboard(context, text) }
         )
     }
@@ -205,6 +205,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         ModalBottomSheet(
             onDismissRequest = { viewModel.toggleSyntaxSheet(false) },
             sheetState = sheetState,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             containerColor = colors.bgSurface,
             contentColor = colors.textPrimary
         ) {
@@ -229,7 +230,6 @@ private fun TopHeaderBar(
     onUndo: () -> Unit,
     onResetDemo: () -> Unit,
     onClear: () -> Unit,
-    onCycleTheme: () -> Unit,
     onOpenSyntax: () -> Unit,
     onToggleScope: () -> Unit
 ) {
@@ -260,17 +260,10 @@ private fun TopHeaderBar(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Num",
+                        text = "Numeric",
                         color = colors.textPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${state.history.size} lines",
-                        color = colors.textMuted,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace
                     )
                 }
 
@@ -316,33 +309,17 @@ private fun TopHeaderBar(
                         )
                     }
 
-                    IconButton(
-                        onClick = onCycleTheme,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        val icon = when (state.themeMode) {
-                            ThemeMode.SYSTEM -> Icons.Default.SettingsBrightness
-                            ThemeMode.LIGHT -> Icons.Default.LightMode
-                            ThemeMode.DARK -> Icons.Default.DarkMode
-                        }
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = "Toggle Theme (${state.themeMode.name})",
-                            tint = colors.textSecondary,
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-
                     // Syntax Guide Pill Button
                     Surface(
                         color = colors.accentOrangeSoft,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = CircleShape,
                         modifier = Modifier
                             .padding(start = 4.dp)
+                            .clip(CircleShape)
                             .clickable { onOpenSyntax() }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -408,13 +385,14 @@ private fun ScopeAndStatsBar(
                 for ((name, value) in summary.variables) {
                     Surface(
                         color = colors.bgSurface,
-                        shape = RoundedCornerShape(6.dp),
+                        shape = CircleShape,
                         modifier = Modifier
-                            .border(1.dp, colors.borderLight, RoundedCornerShape(6.dp))
+                            .clip(CircleShape)
+                            .border(1.dp, colors.borderLight, CircleShape)
                             .clickable { onInsertToken(name) }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
@@ -440,11 +418,13 @@ private fun ScopeAndStatsBar(
                     val fnName = fnSig.substringBefore("(") + "("
                     Surface(
                         color = colors.accentBlueSoft,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier.clickable { onInsertToken(fnName) }
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { onInsertToken(fnName) }
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -479,13 +459,14 @@ private fun StatBadge(
     val colors = LocalNumColors.current
     Surface(
         color = colors.bgSurface,
-        shape = RoundedCornerShape(6.dp),
+        shape = CircleShape,
         modifier = Modifier
-            .border(1.dp, colors.borderLight, RoundedCornerShape(6.dp))
+            .clip(CircleShape)
+            .border(1.dp, colors.borderLight, CircleShape)
             .clickable { onClick() }
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -518,29 +499,41 @@ private fun HistoryEntryCard(
     val colors = LocalNumColors.current
     val result = item.result
 
+    val cardShape = RoundedCornerShape(12.dp)
     Surface(
         color = colors.bgSurface,
-        shape = RoundedCornerShape(12.dp),
+        shape = cardShape,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, colors.borderLight, RoundedCornerShape(12.dp))
+            .clip(cardShape)
+            .border(1.dp, colors.borderLight, cardShape)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Row 1: Editable Input Formula Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 8.dp),
+                    .height(IntrinsicSize.Min),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Line number badge
-                Text(
-                    text = "#$lineNumber",
-                    color = colors.textMuted,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.width(28.dp)
-                )
+                // Vertically highlighted left gutter: Line number
+                Box(
+                    modifier = Modifier
+                        .width(LEFT_GUTTER_WIDTH)
+                        .fillMaxHeight()
+                        .background(colors.bgHover),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "#$lineNumber",
+                        color = colors.textSecondary,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
 
                 // Editable syntax-highlighted formula field
                 BasicTextField(
@@ -562,17 +555,24 @@ private fun HistoryEntryCard(
                     ),
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 4.dp)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
                 )
 
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(28.dp)
+                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
+
+                // Vertically highlighted right gutter: Clear / Remove (X) icon
+                Box(
+                    modifier = Modifier
+                        .width(RIGHT_GUTTER_WIDTH)
+                        .fillMaxHeight()
+                        .background(colors.bgHover)
+                        .clickable { onDelete() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Remove Line",
-                        tint = colors.textMuted,
+                        tint = colors.textSecondary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -584,60 +584,80 @@ private fun HistoryEntryCard(
 
                 val isError = result.error != null
                 val rowBg = if (isError) colors.errorBg else colors.bgSubtle
+                val gutterBg = if (isError) colors.errorBg else colors.bgHover
                 val displayText = if (isError) {
                     result.error ?: "Error"
                 } else {
                     result.formatted ?: ""
                 }
+                val canCopy = !isError && displayText.isNotEmpty()
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(rowBg)
-                        .clickable(enabled = !isError && displayText.isNotEmpty()) {
-                            onInsertResult(displayText)
-                        }
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .height(IntrinsicSize.Min)
+                        .background(rowBg),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                    // Vertically highlighted left gutter: Equal sign (=) or (!)
+                    Box(
+                        modifier = Modifier
+                            .width(LEFT_GUTTER_WIDTH)
+                            .fillMaxHeight()
+                            .background(gutterBg),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isError) "!" else "=",
                             color = if (isError) colors.errorText else colors.accentOrange,
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.width(28.dp)
+                            fontWeight = FontWeight.Bold
                         )
+                    }
+
+                    VerticalDivider(color = colors.borderLight, thickness = 1.dp)
+
+                    // Evaluated Result
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(enabled = canCopy) {
+                                onInsertResult(displayText)
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
                         Text(
                             text = displayText,
-                            color = if (isError) colors.errorText else colors.accentGreen,
+                            color = if (isError) colors.errorText else colors.textPrimary,
                             fontSize = 14.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
 
-                    if (!isError && displayText.isNotEmpty()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            IconButton(
-                                onClick = { onCopyResult(displayText) },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = "Copy Result",
-                                    tint = colors.textMuted,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
+                    VerticalDivider(color = colors.borderLight, thickness = 1.dp)
+
+                    // Vertically highlighted right gutter: Copy icon
+                    Box(
+                        modifier = Modifier
+                            .width(RIGHT_GUTTER_WIDTH)
+                            .fillMaxHeight()
+                            .background(gutterBg)
+                            .clickable(enabled = canCopy) {
+                                onCopyResult(displayText)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (canCopy) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Result",
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
                         }
                     }
                 }
@@ -653,74 +673,58 @@ private fun BottomCalculatorInputPanel(
     visualTransformation: androidx.compose.ui.text.input.VisualTransformation,
     onInputChange: (androidx.compose.ui.text.input.TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
-    onQuickToken: (String) -> Unit,
     onCopyPreview: (String) -> Unit
 ) {
     val colors = LocalNumColors.current
 
     Surface(
         color = colors.bgSurface,
-        shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             HorizontalDivider(color = colors.borderStrong, thickness = 1.dp)
 
-            // Quick Math Symbol & Function Strip
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.bgSubtle)
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                for (token in QUICK_TOKENS) {
-                    Surface(
-                        color = colors.bgSurface,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier
-                            .border(1.dp, colors.borderLight, RoundedCornerShape(6.dp))
-                            .clickable { onQuickToken(token) }
-                    ) {
-                        Text(
-                            text = token.trim(),
-                            color = colors.textPrimary,
-                            fontSize = 13.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        )
-                    }
-                }
-            }
-
-            HorizontalDivider(color = colors.borderLight, thickness = 1.dp)
-
             // Row 1: Single Formula Input Field
+            val hasSubmitInput = currentInput.text.isNotBlank()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .height(IntrinsicSize.Min)
+                    .heightIn(min = 46.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "›",
-                    color = colors.accentOrange,
-                    fontSize = 20.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(end = 10.dp)
-                )
+                // Vertically highlighted left gutter: Prompt symbol
+                Box(
+                    modifier = Modifier
+                        .width(LEFT_GUTTER_WIDTH)
+                        .fillMaxHeight()
+                        .background(colors.bgHover),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "›",
+                        color = colors.accentOrange,
+                        fontSize = 20.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-                Box(modifier = Modifier.weight(1f)) {
+                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
                     if (currentInput.text.isEmpty()) {
                         Text(
-                            text = "Enter math formula (e.g. 25 cm in inch, det([1,2;3,4]))…",
+                            text = "Enter math formula (e.g. 25 cm in inch)",
                             color = colors.textMuted,
-                            fontSize = 15.sp,
+                            fontSize = 16.sp,
                             fontFamily = FontFamily.Monospace,
+                            lineHeight = 22.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -728,6 +732,7 @@ private fun BottomCalculatorInputPanel(
                     BasicTextField(
                         value = currentInput,
                         onValueChange = onInputChange,
+                        singleLine = true,
                         textStyle = TextStyle(
                             color = colors.textPrimary,
                             fontSize = 16.sp,
@@ -750,42 +755,47 @@ private fun BottomCalculatorInputPanel(
                     )
                 }
 
-                if (currentInput.text.isNotEmpty()) {
-                    IconButton(
-                        onClick = { onInputChange(androidx.compose.ui.text.input.TextFieldValue("")) },
-                        modifier = Modifier.size(32.dp)
+                if (hasSubmitInput) {
+                    Surface(
+                        color = colors.accentOrange,
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable { onSubmit() }
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Clear Input",
-                            tint = colors.textMuted,
-                            modifier = Modifier.size(18.dp)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Evaluate Formula",
+                                tint = androidx.compose.ui.graphics.Color.White,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.width(4.dp))
+                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
 
-                // Evaluate / Add to History Button
-                Surface(
-                    color = if (currentInput.text.isNotBlank()) colors.accentOrange else colors.bgSubtle,
-                    shape = RoundedCornerShape(10.dp),
+                // Vertically highlighted right gutter: Clear (X) icon
+                val hasText = currentInput.text.isNotEmpty()
+                Box(
                     modifier = Modifier
-                        .size(38.dp)
-                        .clickable(enabled = currentInput.text.isNotBlank()) { onSubmit() }
+                        .width(RIGHT_GUTTER_WIDTH)
+                        .fillMaxHeight()
+                        .background(colors.bgHover)
+                        .clickable(enabled = hasText) {
+                            onInputChange(androidx.compose.ui.text.input.TextFieldValue(""))
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Evaluate Formula",
-                            tint = if (currentInput.text.isNotBlank()) {
-                                androidx.compose.ui.graphics.Color.White
-                            } else {
-                                colors.textMuted
-                            },
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear Input",
+                        tint = if (hasText) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f),
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
 
@@ -795,65 +805,93 @@ private fun BottomCalculatorInputPanel(
             val hasInput = currentInput.text.isNotBlank()
             val hasError = livePreview.error != null
             val formattedPreview = livePreview.formatted
+            val canCopyPreview = !formattedPreview.isNullOrEmpty()
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(colors.bgSubtle)
-                    .clickable(enabled = !formattedPreview.isNullOrEmpty()) {
-                        formattedPreview?.let(onCopyPreview)
-                    }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .height(IntrinsicSize.Min)
+                    .heightIn(min = 38.dp)
+                    .background(colors.bgSubtle),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                // Vertically highlighted left gutter: Equal sign (=)
+                Box(
+                    modifier = Modifier
+                        .width(LEFT_GUTTER_WIDTH)
+                        .fillMaxHeight()
+                        .background(colors.bgHover),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "=",
-                        color = if (hasInput && !hasError && formattedPreview != null) {
-                            colors.accentOrange
-                        } else {
-                            colors.textMuted
+                        text = if (hasError) "!" else "=",
+                        color = when {
+                            hasError -> colors.errorText
+                            hasInput && formattedPreview != null -> colors.accentOrange
+                            else -> colors.textMuted
                         },
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(end = 10.dp)
+                        fontWeight = FontWeight.Bold
                     )
+                }
 
-                    val resultText = when {
-                        !hasInput -> "Result preview appears here"
-                        livePreview.isComment -> "Comment"
-                        hasError -> livePreview.error ?: "Invalid expression"
-                        formattedPreview != null -> formattedPreview
-                        else -> "…"
-                    }
+                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
 
-                    val resultColor = when {
-                        !hasInput || livePreview.isComment -> colors.textMuted
-                        hasError -> colors.errorText
-                        else -> colors.accentGreen
-                    }
+                val resultText = when {
+                    !hasInput -> "Result preview appears here"
+                    livePreview.isComment -> "Comment"
+                    hasError -> livePreview.error ?: "Invalid expression"
+                    formattedPreview != null -> formattedPreview
+                    else -> "…"
+                }
 
+                val resultColor = when {
+                    !hasInput || livePreview.isComment -> colors.textMuted
+                    hasError -> colors.errorText
+                    else -> colors.textPrimary
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(enabled = canCopyPreview) {
+                            formattedPreview?.let(onCopyPreview)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
                     Text(
                         text = resultText,
                         color = resultColor,
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
+                        lineHeight = 20.sp,
                         fontWeight = if (formattedPreview != null) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                if (!formattedPreview.isNullOrEmpty()) {
-                    Text(
-                        text = "Tap to copy",
-                        color = colors.textMuted,
-                        fontSize = 11.sp
+                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
+
+                // Vertically highlighted right gutter: Copy icon
+                Box(
+                    modifier = Modifier
+                        .width(RIGHT_GUTTER_WIDTH)
+                        .fillMaxHeight()
+                        .background(colors.bgHover)
+                        .clickable(enabled = canCopyPreview) {
+                            formattedPreview?.let(onCopyPreview)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Copy Result Preview",
+                        tint = if (canCopyPreview) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f),
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
@@ -890,22 +928,25 @@ private fun EmptyHistoryPlaceholder(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Surface(
                 color = colors.accentOrange,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.clickable { onLoadDemo() }
+                shape = CircleShape,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable { onLoadDemo() }
             ) {
                 Text(
                     text = "Load Demo Sheet",
                     color = androidx.compose.ui.graphics.Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
                 )
             }
             Surface(
                 color = colors.bgSurface,
-                shape = RoundedCornerShape(8.dp),
+                shape = CircleShape,
                 modifier = Modifier
-                    .border(1.dp, colors.borderStrong, RoundedCornerShape(8.dp))
+                    .clip(CircleShape)
+                    .border(1.dp, colors.borderStrong, CircleShape)
                     .clickable { onOpenSyntax() }
             ) {
                 Text(
@@ -913,7 +954,7 @@ private fun EmptyHistoryPlaceholder(
                     color = colors.textPrimary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
                 )
             }
         }
@@ -967,7 +1008,7 @@ private fun SyntaxCatalogBottomSheet(
         ) {
             Column {
                 Text(
-                    text = "MathJS Syntax Reference",
+                    text = "Syntax Reference",
                     color = colors.textPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -987,20 +1028,21 @@ private fun SyntaxCatalogBottomSheet(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Search box
         Surface(
             color = colors.bgSubtle,
-            shape = RoundedCornerShape(10.dp),
+            shape = CircleShape,
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, colors.borderLight, RoundedCornerShape(10.dp))
+                .clip(CircleShape)
+                .border(1.dp, colors.borderLight, CircleShape)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -1013,7 +1055,7 @@ private fun SyntaxCatalogBottomSheet(
                 Box(modifier = Modifier.weight(1f)) {
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = "Search functions, units, constants (e.g. lusolve, degC, matrix)…",
+                            text = "Search functions, units, constants…",
                             color = colors.textMuted,
                             fontSize = 13.sp
                         )
@@ -1046,22 +1088,29 @@ private fun SyntaxCatalogBottomSheet(
 
         // Category Tabs
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             for (cat in categories) {
                 val active = cat == selectedCategory
                 Surface(
                     color = if (active) colors.accentOrange else colors.bgSubtle,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.clickable { selectedCategory = cat }
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .border(
+                            width = 1.dp,
+                            color = if (active) colors.accentOrange else colors.borderLight,
+                            shape = CircleShape
+                        )
+                        .clickable { selectedCategory = cat }
                 ) {
                     Text(
                         text = cat,
                         color = if (active) androidx.compose.ui.graphics.Color.White else colors.textSecondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     )
                 }
             }
@@ -1115,15 +1164,19 @@ private fun SyntaxCatalogItemCard(
         MathEngine.evaluateSingleLine(item.expr, MathScope()).formatted ?: ""
     }
 
+    val cardShape = RoundedCornerShape(14.dp)
+    val innerBoxShape = RoundedCornerShape(10.dp)
+
     Surface(
         color = colors.bgSubtle,
-        shape = RoundedCornerShape(10.dp),
+        shape = cardShape,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, colors.borderLight, RoundedCornerShape(10.dp))
+            .clip(cardShape)
+            .border(1.dp, colors.borderLight, cardShape)
             .clickable { onTryInInput() }
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1139,24 +1192,27 @@ private fun SyntaxCatalogItemCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         color = colors.bgSurface,
-                        shape = RoundedCornerShape(4.dp)
+                        shape = CircleShape,
+                        modifier = Modifier.border(1.dp, colors.borderLight, CircleShape)
                     ) {
                         Text(
                             text = item.subcategory,
                             color = colors.textMuted,
                             fontSize = 10.sp,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                         )
                     }
                 }
 
                 Surface(
                     color = colors.accentOrangeSoft,
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.clickable { onAddToHistory() }
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable { onAddToHistory() }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -1188,10 +1244,11 @@ private fun SyntaxCatalogItemCard(
             // Example box showing input formula and result row below
             Surface(
                 color = colors.bgSurface,
-                shape = RoundedCornerShape(8.dp),
+                shape = innerBoxShape,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, colors.borderLight, RoundedCornerShape(8.dp))
+                    .clip(innerBoxShape)
+                    .border(1.dp, colors.borderLight, innerBoxShape)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Text(
@@ -1203,7 +1260,7 @@ private fun SyntaxCatalogItemCard(
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = "= $evaluatedExample",
-                            color = colors.accentGreen,
+                            color = colors.textPrimary,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.SemiBold
@@ -1217,6 +1274,6 @@ private fun SyntaxCatalogItemCard(
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-    clipboard.setPrimaryClip(ClipData.newPlainText("Num Result", text))
+    clipboard.setPrimaryClip(ClipData.newPlainText("Numeric Result", text))
     Toast.makeText(context, "Copied: $text", Toast.LENGTH_SHORT).show()
 }
