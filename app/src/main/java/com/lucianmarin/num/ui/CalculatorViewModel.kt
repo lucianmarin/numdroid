@@ -173,13 +173,41 @@ class CalculatorViewModel : ViewModel() {
 
     fun deleteHistoryItem(id: String) {
         val current = _uiState.value
-        val target = current.history.find { it.id == id } ?: return
+        val targetIdx = current.history.indexOfFirst { it.id == id }
+        if (targetIdx == -1) return
+        val target = current.history[targetIdx]
         if (target.isReferenced) return
-        val updated = current.history.filterNot { it.id == id }
-        if (updated.size == current.history.size) return
+
+        val deletedLineNumber = targetIdx + 1
+        val updated = current.history
+            .filterIndexed { idx, _ -> idx != targetIdx }
+            .map { item ->
+                item.copy(
+                    expression = MathEngine.shiftReferencedLineNumbersAfterDeletion(
+                        item.expression,
+                        deletedLineNumber
+                    )
+                )
+            }
+
+        val updatedInputText = MathEngine.shiftReferencedLineNumbersAfterDeletion(
+            current.currentInput.text,
+            deletedLineNumber
+        )
+        val updatedInput = if (updatedInputText != current.currentInput.text) {
+            current.currentInput.copy(
+                text = updatedInputText,
+                selection = TextRange(
+                    current.currentInput.selection.start.coerceIn(0, updatedInputText.length),
+                    current.currentInput.selection.end.coerceIn(0, updatedInputText.length)
+                )
+            )
+        } else {
+            current.currentInput
+        }
 
         pushUndoSnapshot(current.history)
-        recalculateAll(updated, current.currentInput)
+        recalculateAll(updated, updatedInput)
     }
 
     fun clearHistory() {

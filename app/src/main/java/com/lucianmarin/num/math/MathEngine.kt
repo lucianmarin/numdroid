@@ -719,6 +719,27 @@ object MathEngine {
         }
         return result
     }
+
+    fun shiftReferencedLineNumbersAfterDeletion(rawExpr: String, deletedLineNumber: Int): String {
+        val tokens = SyntaxHighlighter.tokenize(rawExpr)
+        if (tokens.isEmpty()) return rawExpr
+        val sb = StringBuilder(rawExpr.length)
+        for (tok in tokens) {
+            if (
+                tok.type != SyntaxTokenType.COMMENT &&
+                tok.type != SyntaxTokenType.STRING &&
+                LINE_VAR_REGEX.matches(tok.text)
+            ) {
+                val lineNum = tok.text.substring(1).toIntOrNull()
+                if (lineNum != null && lineNum > deletedLineNumber) {
+                    sb.append('$').append(lineNum - 1)
+                    continue
+                }
+            }
+            sb.append(tok.text)
+        }
+        return sb.toString()
+    }
 }
 
 object MathEvaluator {

@@ -52,6 +52,38 @@ class MathEngineTest {
         assertEquals("60", refResults[2].formatted)
         assertTrue(refScope.variables.containsKey("\$1"))
         assertEquals(setOf(1, 2), MathEngine.extractReferencedLineNumbers("\$1 + \$2 # ignore \$3"))
+        assertEquals(
+            "\$1 + \$2 * \$3 # keep \$4 and \"\$5\"",
+            MathEngine.shiftReferencedLineNumbersAfterDeletion(
+                "\$1 + \$3 * \$4 # keep \$4 and \"\$5\"",
+                deletedLineNumber = 2
+            )
+        )
+
+        val vm = com.lucianmarin.num.ui.CalculatorViewModel()
+        vm.clearHistory()
+        vm.setCurrentInputText("10")
+        vm.submitCurrentInput() // $1 = 10
+        vm.setCurrentInputText("20")
+        vm.submitCurrentInput() // $2 = 20 (non-linked)
+        vm.setCurrentInputText("30")
+        vm.submitCurrentInput() // $3 = 30 (linked by $4)
+        vm.setCurrentInputText("\$1 + \$3")
+        vm.submitCurrentInput() // $4 = 40
+        vm.setCurrentInputText("\$4 * 2") // bottom input referencing $4
+
+        val line2Id = vm.uiState.value.history[1].id
+        vm.deleteHistoryItem(line2Id)
+
+        val updatedHistory = vm.uiState.value.history
+        assertEquals(3, updatedHistory.size)
+        assertEquals("10", updatedHistory[0].expression)
+        assertEquals("30", updatedHistory[1].expression)
+        assertTrue(updatedHistory[1].isReferenced)
+        assertEquals("\$1 + \$2", updatedHistory[2].expression)
+        assertEquals("40", updatedHistory[2].result.formatted)
+        assertEquals("\$3 * 2", vm.uiState.value.currentInput.text)
+        assertEquals("80", vm.uiState.value.livePreview.formatted)
 
         assertEquals("297.5", eval("tax = 19%; price = 250; price * (1 + tax)"))
     }
