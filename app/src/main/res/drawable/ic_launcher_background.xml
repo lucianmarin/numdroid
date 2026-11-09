@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from icon.svg:
+     Top half: #432B7A (deep purple)
+     Bottom-left quadrant: #F85ACB (magenta pink)
+     Bottom-right quadrant: #6441B3 (violet) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="480"
+    android:viewportHeight="480">
+    <path
+        android:fillColor="#432B7A"
+        android:pathData="M0,0H480V240H0Z" />
+    <path
+        android:fillColor="#F85ACB"
+        android:pathData="M0,240H240V480H0Z" />
+    <path
+        android:fillColor="#6441B3"
+        android:pathData="M240,240H480V480H240Z" />
+</vector>
