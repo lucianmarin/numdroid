@@ -49,9 +49,11 @@ class CalculatorViewModel : ViewModel() {
         private const val KEY_HISTORY = "history_json_v1"
         private const val KEY_INPUT = "current_input_v1"
         private const val KEY_THEME = "theme_mode_v1"
+        const val MAX_LINES = 99
+        private const val MAX_HISTORY_ITEMS = MAX_LINES - 1
 
         val DEFAULT_EXPRESSIONS = listOf(
-            "# Welcome to Numeric — Interactive Math Calculator",
+            "# Welcome to Numeric — a smart math calculator",
             "radius = 12.5 cm",
             "area = pi * radius^2 in cm2",
             "speed = 110 km/h in m/s",
@@ -148,6 +150,7 @@ class CalculatorViewModel : ViewModel() {
 
     fun submitCurrentInput() {
         val current = _uiState.value
+        if (current.history.size >= MAX_HISTORY_ITEMS) return
         val text = current.currentInput.text.trim()
         if (text.isEmpty()) return
 
@@ -202,6 +205,7 @@ class CalculatorViewModel : ViewModel() {
     fun insertIntoCurrentInput(snippet: String, addAsNewHistoryItem: Boolean = false) {
         val current = _uiState.value
         if (addAsNewHistoryItem) {
+            if (current.history.size >= MAX_HISTORY_ITEMS) return
             pushUndoSnapshot(current.history)
             val newHistory = current.history + HistoryItem(expression = snippet)
             recalculateAll(newHistory, current.currentInput)
@@ -245,13 +249,14 @@ class CalculatorViewModel : ViewModel() {
     }
 
     private fun recalculateAll(items: List<HistoryItem>, input: TextFieldValue) {
-        val expressions = items.map { it.expression }
+        val cappedItems = if (items.size > MAX_HISTORY_ITEMS) items.take(MAX_HISTORY_ITEMS) else items
+        val expressions = cappedItems.map { it.expression }
         val (evaluatedList, scope) = MathEngine.evaluateLines(expressions)
 
         val refsByLine = expressions.map { MathEngine.extractReferencedLineNumbers(it) }
         val inputRefs = MathEngine.extractReferencedLineNumbers(input.text)
 
-        val updatedHistory = items.mapIndexed { idx, item ->
+        val updatedHistory = cappedItems.mapIndexed { idx, item ->
             val lineNumber = idx + 1
             val isRef = inputRefs.contains(lineNumber) ||
                 refsByLine.withIndex().any { (otherIdx, refs) -> otherIdx != idx && refs.contains(lineNumber) }

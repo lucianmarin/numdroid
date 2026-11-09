@@ -25,8 +25,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,6 +35,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,12 +74,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -85,6 +92,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucianmarin.num.math.EvalLineResult
@@ -97,8 +105,9 @@ import com.lucianmarin.num.math.SyntaxHighlighter
 import com.lucianmarin.num.ui.theme.LocalNumColors
 import com.lucianmarin.num.ui.theme.ThemeMode
 
-private val LEFT_GUTTER_WIDTH = 42.dp
+private val LEFT_GUTTER_WIDTH = 40.dp
 private val RIGHT_GUTTER_WIDTH = 40.dp
+private val LIST_VERTICAL_PADDING = 10.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,24 +119,20 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         SyntaxHighlighter.visualTransformation(colors.syntax)
     }
 
-    val listState = rememberLazyListState()
-    val reversedHistory = remember(state.history) {
-        state.history.mapIndexed { chronologicalIndex, item ->
-            chronologicalIndex + 1 to item
-        }.asReversed()
-    }
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = state.history.size
+    )
 
-    // Scroll to index 0 (newest entry right above the bottom input) when a new item is added
+    // Scroll to the bottom input card when history size changes
     LaunchedEffect(state.history.size) {
-        if (state.history.isNotEmpty()) {
-            listState.animateScrollToItem(0)
-        }
+        listState.animateScrollToItem(state.history.size)
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.bgApp)
+            .navigationBarsPadding()
             .imePadding()
     ) {
         // Top Header Bar
@@ -147,8 +152,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             )
         }
 
-        // Reverse History List (bottom input card at index 0, followed by newest-to-oldest history cards)
-        val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        // History List aligned to bottom, followed by the bottom input card
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -156,32 +160,20 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         ) {
             LazyColumn(
                 state = listState,
-                reverseLayout = true,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = 12.dp,
                     end = 12.dp,
-                    top = 10.dp,
-                    bottom = 10.dp + navBarBottom
+                    top = LIST_VERTICAL_PADDING,
+                    bottom = LIST_VERTICAL_PADDING
                 ),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom)
             ) {
-                item(key = "bottom_input_card") {
-                    BottomCalculatorInputPanel(
-                        lineNumber = state.history.size + 1,
-                        currentInput = state.currentInput,
-                        livePreview = state.livePreview,
-                        visualTransformation = syntaxVisualTransformation,
-                        onInputChange = viewModel::onInputChange,
-                        onSubmit = viewModel::submitCurrentInput,
-                        onCopyPreview = { text -> copyToClipboard(context, text) }
-                    )
-                }
-
                 itemsIndexed(
-                    items = reversedHistory,
-                    key = { _, pair -> pair.second.id }
-                ) { _, (lineNumber, item) ->
+                    items = state.history,
+                    key = { _, item -> item.id }
+                ) { index, item ->
+                    val lineNumber = index + 1
                     HistoryEntryCard(
                         lineNumber = lineNumber,
                         item = item,
@@ -200,6 +192,18 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             ) " " else ""
                             viewModel.insertIntoCurrentInput("$prefix\$$lineNumber")
                         }
+                    )
+                }
+
+                item(key = "bottom_input_card") {
+                    BottomCalculatorInputPanel(
+                        lineNumber = state.history.size + 1,
+                        currentInput = state.currentInput,
+                        livePreview = state.livePreview,
+                        visualTransformation = syntaxVisualTransformation,
+                        onInputChange = viewModel::onInputChange,
+                        onSubmit = viewModel::submitCurrentInput,
+                        onCopyPreview = { text -> copyToClipboard(context, text) }
                     )
                 }
             }
@@ -501,6 +505,29 @@ private fun HistoryEntryCard(
 ) {
     val colors = LocalNumColors.current
     val result = item.result
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    var isFocused by remember { mutableStateOf(false) }
+    var cardSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+
+    LaunchedEffect(isFocused, imeBottom) {
+        if (isFocused && imeBottom > 0) {
+            withFrameNanos { }
+            val padPx = with(density) { LIST_VERTICAL_PADDING.toPx() }
+            val rect = if (cardSize != IntSize.Zero) {
+                Rect(
+                    left = 0f,
+                    top = -padPx,
+                    right = cardSize.width.toFloat(),
+                    bottom = cardSize.height.toFloat() + padPx
+                )
+            } else {
+                null
+            }
+            bringIntoViewRequester.bringIntoView(rect)
+        }
+    }
 
     val cardShape = RoundedCornerShape(12.dp)
     Surface(
@@ -508,6 +535,8 @@ private fun HistoryEntryCard(
         shape = cardShape,
         modifier = Modifier
             .fillMaxWidth()
+            .onSizeChanged { cardSize = it }
+            .bringIntoViewRequester(bringIntoViewRequester)
             .clip(cardShape)
             .border(1.dp, colors.borderLight, cardShape)
     ) {
@@ -559,6 +588,7 @@ private fun HistoryEntryCard(
                     ),
                     modifier = Modifier
                         .weight(1f)
+                        .onFocusChanged { isFocused = it.isFocused }
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 )
 
@@ -684,12 +714,37 @@ private fun BottomCalculatorInputPanel(
 ) {
     val colors = LocalNumColors.current
     val cardShape = RoundedCornerShape(12.dp)
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    var isFocused by remember { mutableStateOf(false) }
+    var cardSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    val imeBottom = WindowInsets.ime.getBottom(density)
+
+    LaunchedEffect(isFocused, imeBottom) {
+        if (isFocused && imeBottom > 0) {
+            withFrameNanos { }
+            val padPx = with(density) { LIST_VERTICAL_PADDING.toPx() }
+            val rect = if (cardSize != IntSize.Zero) {
+                Rect(
+                    left = 0f,
+                    top = -padPx,
+                    right = cardSize.width.toFloat(),
+                    bottom = cardSize.height.toFloat() + padPx
+                )
+            } else {
+                null
+            }
+            bringIntoViewRequester.bringIntoView(rect)
+        }
+    }
 
     Surface(
         color = colors.bgSurface,
         shape = cardShape,
         modifier = Modifier
             .fillMaxWidth()
+            .onSizeChanged { cardSize = it }
+            .bringIntoViewRequester(bringIntoViewRequester)
             .clip(cardShape)
             .border(1.dp, colors.borderLight, cardShape)
     ) {
@@ -744,6 +799,7 @@ private fun BottomCalculatorInputPanel(
                     ),
                     modifier = Modifier
                         .weight(1f)
+                        .onFocusChanged { isFocused = it.isFocused }
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 )
 
