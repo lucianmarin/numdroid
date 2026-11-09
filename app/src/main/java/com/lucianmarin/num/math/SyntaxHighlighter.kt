@@ -48,12 +48,12 @@ val LightSyntaxPalette = SyntaxPalette(
     comment = Color(0xFF9CA3AF),
     string = Color(0xFFB45309),
     number = Color(0xFF111827),
-    operator = Color(0xFFD97706),
-    function = Color(0xFF2563EB),
+    operator = Color(0xFFF85ACB),
+    function = Color(0xFF6441B3),
     variable = Color(0xFF059669),
-    constant = Color(0xFF7C3AED),
-    keyword = Color(0xFF0284C7),
-    unit = Color(0xFF4F46E5),
+    constant = Color(0xFFF85ACB),
+    keyword = Color(0xFF432B7A),
+    unit = Color(0xFF6441B3),
     punctuation = Color(0xFF6B7280)
 )
 
@@ -62,12 +62,12 @@ val DarkSyntaxPalette = SyntaxPalette(
     comment = Color(0xFF6B7280),
     string = Color(0xFFFBBF24),
     number = Color(0xFFF3F4F6),
-    operator = Color(0xFFF59E0B),
-    function = Color(0xFF60A5FA),
+    operator = Color(0xFFF85ACB),
+    function = Color(0xFFA78BFA),
     variable = Color(0xFF34D399),
-    constant = Color(0xFFA78BFA),
-    keyword = Color(0xFF38BDF8),
-    unit = Color(0xFF818CF8),
+    constant = Color(0xFFF85ACB),
+    keyword = Color(0xFFC4B5FD),
+    unit = Color(0xFF8B5CF6),
     punctuation = Color(0xFF9CA3AF)
 )
 
@@ -187,11 +187,11 @@ object SyntaxHighlighter {
                     SyntaxTokenType.COMMENT -> SpanStyle(color = palette.comment, fontStyle = FontStyle.Italic)
                     SyntaxTokenType.STRING -> SpanStyle(color = palette.string)
                     SyntaxTokenType.NUMBER -> SpanStyle(color = palette.number)
-                    SyntaxTokenType.OPERATOR -> SpanStyle(color = palette.operator, fontWeight = FontWeight.SemiBold)
-                    SyntaxTokenType.FUNCTION -> SpanStyle(color = palette.function, fontWeight = FontWeight.Medium)
-                    SyntaxTokenType.VARIABLE -> SpanStyle(color = palette.variable, fontWeight = FontWeight.Medium)
-                    SyntaxTokenType.CONSTANT -> SpanStyle(color = palette.constant, fontWeight = FontWeight.Medium)
-                    SyntaxTokenType.KEYWORD -> SpanStyle(color = palette.keyword, fontWeight = FontWeight.Medium)
+                    SyntaxTokenType.OPERATOR -> SpanStyle(color = palette.operator)
+                    SyntaxTokenType.FUNCTION -> SpanStyle(color = palette.function)
+                    SyntaxTokenType.VARIABLE -> SpanStyle(color = palette.variable)
+                    SyntaxTokenType.CONSTANT -> SpanStyle(color = palette.constant)
+                    SyntaxTokenType.KEYWORD -> SpanStyle(color = palette.keyword)
                     SyntaxTokenType.UNIT -> SpanStyle(color = palette.unit)
                     SyntaxTokenType.PUNCTUATION -> SpanStyle(color = palette.punctuation)
                 }

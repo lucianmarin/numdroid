@@ -266,16 +266,16 @@ private fun TopHeaderBar(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { onToggleScope() }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(colors.accentOrange)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+//                    Box(
+//                        modifier = Modifier
+//                            .size(10.dp)
+//                            .clip(CircleShape)
+//                            .background(colors.accentPink)
+//                    )
+//                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Numeric",
-                        color = colors.textPrimary,
+                        color = colors.accentBlue,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -473,7 +473,7 @@ private fun StatBadge(
         ) {
             Text(
                 text = "$label ",
-                color = colors.textMuted,
+                color = colors.accentPink,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -528,7 +528,7 @@ private fun HistoryEntryCard(
                 ) {
                     Text(
                         text = "#$lineNumber",
-                        color = colors.textSecondary,
+                        color = colors.accentBlue,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium
@@ -709,7 +709,7 @@ private fun BottomCalculatorInputPanel(
                 ) {
                     Text(
                         text = "#$lineNumber",
-                        color = colors.textSecondary,
+                        color = colors.accentBlue,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium
@@ -1087,7 +1087,7 @@ private fun SyntaxCatalogBottomSheet(
                 item(key = "header_${group.category}") {
                     Text(
                         text = group.category.uppercase(),
-                        color = colors.accentOrange,
+                        color = colors.accentBlue,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
@@ -1163,7 +1163,7 @@ private fun SyntaxCatalogItemCard(
                 }
 
                 Surface(
-                    color = colors.accentOrangeSoft,
+                    color = colors.accentPinkSoft,
                     shape = CircleShape,
                     modifier = Modifier
                         .clip(CircleShape)
@@ -1176,13 +1176,13 @@ private fun SyntaxCatalogItemCard(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add to History",
-                            tint = colors.accentOrange,
+                            tint = colors.accentPink,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = "Add",
-                            color = colors.accentOrange,
+                            color = colors.accentPink,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
