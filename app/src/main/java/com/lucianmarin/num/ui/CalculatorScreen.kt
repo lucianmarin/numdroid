@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Functions
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -192,8 +193,12 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                         onCopyResult = { textToCopy ->
                             copyToClipboard(context, textToCopy)
                         },
-                        onInsertResult = { resultText ->
-                            viewModel.insertIntoCurrentInput(resultText)
+                        onInsertResult = {
+                            val prefix = if (
+                                state.currentInput.text.isNotEmpty() &&
+                                !state.currentInput.text.endsWith(" ")
+                            ) " " else ""
+                            viewModel.insertIntoCurrentInput("$prefix\$$lineNumber")
                         }
                     )
                 }
@@ -503,7 +508,7 @@ private fun HistoryEntryCard(
     onExpressionChange: (String) -> Unit,
     onDelete: () -> Unit,
     onCopyResult: (String) -> Unit,
-    onInsertResult: (String) -> Unit
+    onInsertResult: () -> Unit
 ) {
     val colors = LocalNumColors.current
     val result = item.result
@@ -534,7 +539,7 @@ private fun HistoryEntryCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "#$lineNumber",
+                        text = "\$$lineNumber",
                         color = colors.accentBlue,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
@@ -570,19 +575,20 @@ private fun HistoryEntryCard(
 
                 VerticalDivider(color = colors.borderLight, thickness = 1.dp)
 
-                // Vertically highlighted right gutter: Clear / Remove (X) icon
+                // Vertically highlighted right gutter: Clear / Remove (X) icon or Referenced icon
+                val isReferenced = item.isReferenced
                 Box(
                     modifier = Modifier
                         .width(RIGHT_GUTTER_WIDTH)
                         .fillMaxHeight()
                         .background(colors.bgHover)
-                        .clickable { onDelete() },
+                        .clickable(enabled = !isReferenced) { onDelete() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Remove Line",
-                        tint = colors.textSecondary,
+                        imageVector = if (isReferenced) Icons.Default.Link else Icons.Default.Close,
+                        contentDescription = if (isReferenced) "Line Referenced" else "Remove Line",
+                        tint = if (isReferenced) colors.textMuted else colors.textSecondary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -634,7 +640,7 @@ private fun HistoryEntryCard(
                             .weight(1f)
                             .fillMaxHeight()
                             .clickable(enabled = canCopy) {
-                                onInsertResult(displayText)
+                                onInsertResult()
                             }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         contentAlignment = Alignment.CenterStart
@@ -715,7 +721,7 @@ private fun BottomCalculatorInputPanel(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "#$lineNumber",
+                        text = "\$$lineNumber",
                         color = colors.accentBlue,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,

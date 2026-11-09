@@ -41,6 +41,18 @@ class MathEngineTest {
         assertEquals("125", results[2].formatted)
         assertEquals("250", results[3].formatted)
 
+        val lineRefs = listOf(
+            "10 + 5",
+            "\$1 * 3",
+            "\$1 + \$2"
+        )
+        val (refResults, refScope) = MathEngine.evaluateLines(lineRefs)
+        assertEquals("15", refResults[0].formatted)
+        assertEquals("45", refResults[1].formatted)
+        assertEquals("60", refResults[2].formatted)
+        assertTrue(refScope.variables.containsKey("\$1"))
+        assertEquals(setOf(1, 2), MathEngine.extractReferencedLineNumbers("\$1 + \$2 # ignore \$3"))
+
         assertEquals("297.5", eval("tax = 19%; price = 250; price * (1 + tax)"))
     }
 

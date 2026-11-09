@@ -148,6 +148,7 @@ object SyntaxHighlighter {
                         Regex("""^\s*=(?!=)""").containsMatchIn(afterSlice) -> SyntaxTokenType.VARIABLE
                         KEYWORDS.contains(full) -> SyntaxTokenType.KEYWORD
                         CONSTANTS.contains(full) || MathFunctions.CONSTANTS.containsKey(full) -> SyntaxTokenType.CONSTANT
+                        MathEngine.LINE_VAR_REGEX.matches(full) -> SyntaxTokenType.VARIABLE
                         scopeNames.contains(full) -> SyntaxTokenType.VARIABLE
                         MathFunctions.BUILTIN_FUNCTIONS.contains(full) -> SyntaxTokenType.FUNCTION
                         else -> SyntaxTokenType.UNIT

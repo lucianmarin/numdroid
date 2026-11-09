@@ -19,7 +19,8 @@ import java.util.UUID
 data class HistoryItem(
     val id: String = UUID.randomUUID().toString(),
     val expression: String,
-    val result: EvalLineResult = EvalLineResult(null, null, null, isComment = true)
+    val result: EvalLineResult = EvalLineResult(null, null, null, isComment = true),
+    val isReferenced: Boolean = false
 )
 
 data class ScopeSummary(
@@ -169,6 +170,8 @@ class CalculatorViewModel : ViewModel() {
 
     fun deleteHistoryItem(id: String) {
         val current = _uiState.value
+        val target = current.history.find { it.id == id } ?: return
+        if (target.isReferenced) return
         val updated = current.history.filterNot { it.id == id }
         if (updated.size == current.history.size) return
 
@@ -245,8 +248,17 @@ class CalculatorViewModel : ViewModel() {
         val expressions = items.map { it.expression }
         val (evaluatedList, scope) = MathEngine.evaluateLines(expressions)
 
+        val refsByLine = expressions.map { MathEngine.extractReferencedLineNumbers(it) }
+        val inputRefs = MathEngine.extractReferencedLineNumbers(input.text)
+
         val updatedHistory = items.mapIndexed { idx, item ->
-            item.copy(result = evaluatedList.getOrElse(idx) { EvalLineResult(null, null, null, true) })
+            val lineNumber = idx + 1
+            val isRef = inputRefs.contains(lineNumber) ||
+                refsByLine.withIndex().any { (otherIdx, refs) -> otherIdx != idx && refs.contains(lineNumber) }
+            item.copy(
+                result = evaluatedList.getOrElse(idx) { EvalLineResult(null, null, null, true) },
+                isReferenced = isRef
+            )
         }
 
         // Evaluate live preview for the bottom input bar using a snapshot of the scope
@@ -262,7 +274,7 @@ class CalculatorViewModel : ViewModel() {
         val avg = if (numericVals.isNotEmpty()) sum!! / numericVals.size else null
 
         val varsMap = scope.variables
-            .filterKeys { it != "ans" && it !is MathValue.FunctionVal }
+            .filterKeys { it != "ans" && !MathEngine.LINE_VAR_REGEX.matches(it) }
             .filterValues { it !is MathValue.FunctionVal }
             .mapValues { (_, v) -> v.format() }
 

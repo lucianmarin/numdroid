@@ -633,7 +633,7 @@ class MathScope(
 
     val functions: Map<String, MathValue.FunctionVal>
         get() = variables.mapNotNull { (k, v) ->
-            if (v is MathValue.FunctionVal) k to v else null
+            if (v is MathValue.FunctionVal && !MathEngine.LINE_VAR_REGEX.matches(k)) k to v else null
         }.toMap()
 
     fun get(name: String): MathValue? = variables[name] ?: MathFunctions.CONSTANTS[name]
@@ -655,6 +655,8 @@ data class EvalLineResult(
 )
 
 object MathEngine {
+    val LINE_VAR_REGEX = Regex("""^\$\d+$""")
+
     fun evaluateSingleLine(rawExpr: String, scope: MathScope = MathScope()): EvalLineResult {
         val stripped = MathEvaluator.stripComments(rawExpr).trim()
         if (stripped.isEmpty()) {
@@ -695,10 +697,27 @@ object MathEngine {
 
     fun evaluateLines(lines: List<String>): Pair<List<EvalLineResult>, MathScope> {
         val scope = MathScope()
-        val results = lines.map { line ->
-            evaluateSingleLine(line, scope)
+        val results = lines.mapIndexed { idx, line ->
+            val res = evaluateSingleLine(line, scope)
+            if (res.value != null && res.value !is MathValue.NullVal) {
+                scope.set("\$${idx + 1}", res.value)
+            }
+            res
         }
         return results to scope
+    }
+
+    fun extractReferencedLineNumbers(rawExpr: String): Set<Int> {
+        val tokens = SyntaxHighlighter.tokenize(rawExpr)
+        val result = mutableSetOf<Int>()
+        for (tok in tokens) {
+            if (tok.type != SyntaxTokenType.COMMENT && tok.type != SyntaxTokenType.STRING) {
+                if (LINE_VAR_REGEX.matches(tok.text)) {
+                    tok.text.substring(1).toIntOrNull()?.let { result.add(it) }
+                }
+            }
+        }
+        return result
     }
 }
 
