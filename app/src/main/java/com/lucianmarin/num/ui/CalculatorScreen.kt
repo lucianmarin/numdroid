@@ -3,7 +3,6 @@ package com.lucianmarin.num.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -186,11 +185,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             copyToClipboard(context, textToCopy)
                         },
                         onInsertResult = {
-                            val prefix = if (
-                                state.currentInput.text.isNotEmpty() &&
-                                !state.currentInput.text.endsWith(" ")
-                            ) " " else ""
-                            viewModel.insertIntoCurrentInput("$prefix\$$lineNumber")
+                            viewModel.insertIntoCurrentInput("\$$lineNumber")
                         }
                     )
                 }
@@ -1214,5 +1209,4 @@ private fun SyntaxCatalogItemCard(
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText("Numeric Result", text))
-    Toast.makeText(context, "Copied: $text", Toast.LENGTH_SHORT).show()
 }
