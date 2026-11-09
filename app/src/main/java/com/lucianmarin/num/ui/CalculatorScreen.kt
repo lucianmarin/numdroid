@@ -203,17 +203,6 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                     )
                 }
             }
-
-            if (reversedHistory.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 88.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    EmptyHistoryPlaceholder()
-                }
-            }
         }
     }
 
@@ -867,25 +856,6 @@ private fun BottomCalculatorInputPanel(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun EmptyHistoryPlaceholder() {
-    val colors = LocalNumColors.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(28.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "No history items yet",
-            color = colors.textPrimary,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }
 
