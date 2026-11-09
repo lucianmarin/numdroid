@@ -132,7 +132,6 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         TopHeaderBar(
             state = state,
             onUndo = viewModel::undo,
-            onResetDemo = viewModel::resetToDemo,
             onClear = viewModel::clearHistory,
             onOpenSyntax = { viewModel.toggleSyntaxSheet(true) },
             onToggleScope = viewModel::toggleScopeBar
@@ -146,58 +145,67 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             )
         }
 
-        // Reverse History List (editable items, newest nearest the bottom input bar)
+        // Reverse History List (bottom input card at index 0, followed by newest-to-oldest history cards)
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
         ) {
+            LazyColumn(
+                state = listState,
+                reverseLayout = true,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item(key = "bottom_input_card") {
+                    BottomCalculatorInputPanel(
+                        lineNumber = state.history.size + 1,
+                        currentInput = state.currentInput,
+                        livePreview = state.livePreview,
+                        visualTransformation = syntaxVisualTransformation,
+                        onInputChange = viewModel::onInputChange,
+                        onSubmit = viewModel::submitCurrentInput,
+                        onCopyPreview = { text -> copyToClipboard(context, text) }
+                    )
+                }
+
+                itemsIndexed(
+                    items = reversedHistory,
+                    key = { _, pair -> pair.second.id }
+                ) { _, (lineNumber, item) ->
+                    HistoryEntryCard(
+                        lineNumber = lineNumber,
+                        item = item,
+                        visualTransformation = syntaxVisualTransformation,
+                        onExpressionChange = { newExpr ->
+                            viewModel.updateHistoryItem(item.id, newExpr)
+                        },
+                        onDelete = { viewModel.deleteHistoryItem(item.id) },
+                        onCopyResult = { textToCopy ->
+                            copyToClipboard(context, textToCopy)
+                        },
+                        onInsertResult = { resultText ->
+                            viewModel.insertIntoCurrentInput(resultText)
+                        }
+                    )
+                }
+            }
+
             if (reversedHistory.isEmpty()) {
-                EmptyHistoryPlaceholder(
-                    onLoadDemo = viewModel::resetToDemo,
-                    onOpenSyntax = { viewModel.toggleSyntaxSheet(true) }
-                )
-            } else {
-                LazyColumn(
-                    state = listState,
-                    reverseLayout = true,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 88.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    itemsIndexed(
-                        items = reversedHistory,
-                        key = { _, pair -> pair.second.id }
-                    ) { _, (lineNumber, item) ->
-                        HistoryEntryCard(
-                            lineNumber = lineNumber,
-                            item = item,
-                            visualTransformation = syntaxVisualTransformation,
-                            onExpressionChange = { newExpr ->
-                                viewModel.updateHistoryItem(item.id, newExpr)
-                            },
-                            onDelete = { viewModel.deleteHistoryItem(item.id) },
-                            onCopyResult = { textToCopy ->
-                                copyToClipboard(context, textToCopy)
-                            },
-                            onInsertResult = { resultText ->
-                                viewModel.insertIntoCurrentInput(resultText)
-                            }
-                        )
-                    }
+                    EmptyHistoryPlaceholder(
+                        onLoadDemo = viewModel::resetToDemo,
+                        onOpenSyntax = { viewModel.toggleSyntaxSheet(true) }
+                    )
                 }
             }
         }
-
-        // Bottom Single Input Panel (Input Formula Row + Separate Result Row Below)
-        BottomCalculatorInputPanel(
-            currentInput = state.currentInput,
-            livePreview = state.livePreview,
-            visualTransformation = syntaxVisualTransformation,
-            onInputChange = viewModel::onInputChange,
-            onSubmit = viewModel::submitCurrentInput,
-            onCopyPreview = { text -> copyToClipboard(context, text) }
-        )
     }
 
     if (state.showSyntaxSheet) {
@@ -228,7 +236,6 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
 private fun TopHeaderBar(
     state: CalculatorUiState,
     onUndo: () -> Unit,
-    onResetDemo: () -> Unit,
     onClear: () -> Unit,
     onOpenSyntax: () -> Unit,
     onToggleScope: () -> Unit
@@ -281,18 +288,6 @@ private fun TopHeaderBar(
                             imageVector = Icons.AutoMirrored.Filled.Undo,
                             contentDescription = "Undo",
                             tint = if (state.canUndo) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f),
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onResetDemo,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Load Demo Formulas",
-                            tint = colors.textSecondary,
                             modifier = Modifier.size(19.dp)
                         )
                     }
@@ -539,6 +534,7 @@ private fun HistoryEntryCard(
                 BasicTextField(
                     value = item.expression,
                     onValueChange = onExpressionChange,
+                    singleLine = true,
                     textStyle = TextStyle(
                         color = colors.textPrimary,
                         fontSize = 15.sp,
@@ -630,9 +626,10 @@ private fun HistoryEntryCard(
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Text(
-                            text = displayText,
+                            text = displayText.ifEmpty { " " },
                             color = if (isError) colors.errorText else colors.textPrimary,
                             fontSize = 14.sp,
+                            lineHeight = 18.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -668,6 +665,7 @@ private fun HistoryEntryCard(
 
 @Composable
 private fun BottomCalculatorInputPanel(
+    lineNumber: Int,
     currentInput: androidx.compose.ui.text.input.TextFieldValue,
     livePreview: EvalLineResult,
     visualTransformation: androidx.compose.ui.text.input.VisualTransformation,
@@ -676,24 +674,25 @@ private fun BottomCalculatorInputPanel(
     onCopyPreview: (String) -> Unit
 ) {
     val colors = LocalNumColors.current
+    val cardShape = RoundedCornerShape(12.dp)
 
     Surface(
         color = colors.bgSurface,
-        modifier = Modifier.fillMaxWidth()
+        shape = cardShape,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .border(1.dp, colors.borderLight, cardShape)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(color = colors.borderStrong, thickness = 1.dp)
-
             // Row 1: Single Formula Input Field
-            val hasSubmitInput = currentInput.text.isNotBlank()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Min)
-                    .heightIn(min = 46.dp),
+                    .height(IntrinsicSize.Min),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Vertically highlighted left gutter: Prompt symbol
+                // Vertically highlighted left gutter: Line number
                 Box(
                     modifier = Modifier
                         .width(LEFT_GUTTER_WIDTH)
@@ -702,79 +701,42 @@ private fun BottomCalculatorInputPanel(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "›",
-                        color = colors.accentOrange,
-                        fontSize = 20.sp,
+                        text = "#$lineNumber",
+                        color = colors.textSecondary,
+                        fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
                 VerticalDivider(color = colors.borderLight, thickness = 1.dp)
 
-                Box(
+                BasicTextField(
+                    value = currentInput,
+                    onValueChange = onInputChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = colors.textPrimary,
+                        fontSize = 15.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 20.sp
+                    ),
+                    cursorBrush = SolidColor(colors.accentOrange),
+                    visualTransformation = visualTransformation,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.None,
+                        autoCorrectEnabled = false,
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSend = { onSubmit() },
+                        onDone = { onSubmit() }
+                    ),
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    if (currentInput.text.isEmpty()) {
-                        Text(
-                            text = "Enter math formula (e.g. 25 cm in inch)",
-                            color = colors.textMuted,
-                            fontSize = 16.sp,
-                            fontFamily = FontFamily.Monospace,
-                            lineHeight = 22.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    BasicTextField(
-                        value = currentInput,
-                        onValueChange = onInputChange,
-                        singleLine = true,
-                        textStyle = TextStyle(
-                            color = colors.textPrimary,
-                            fontSize = 16.sp,
-                            fontFamily = FontFamily.Monospace,
-                            lineHeight = 22.sp
-                        ),
-                        cursorBrush = SolidColor(colors.accentOrange),
-                        visualTransformation = visualTransformation,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.None,
-                            autoCorrectEnabled = false,
-                            keyboardType = KeyboardType.Text,
-                            imeAction = ImeAction.Send
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onSend = { onSubmit() },
-                            onDone = { onSubmit() }
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                if (hasSubmitInput) {
-                    Surface(
-                        color = colors.accentOrange,
-                        shape = CircleShape,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .clickable { onSubmit() }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Evaluate Formula",
-                                tint = androidx.compose.ui.graphics.Color.White,
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-                    }
-                }
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                )
 
                 VerticalDivider(color = colors.borderLight, thickness = 1.dp)
 
@@ -799,37 +761,39 @@ private fun BottomCalculatorInputPanel(
                 }
             }
 
-            // Row 2: Separate Evaluated Result Preview Row below the input formula
+            // Row 2: Separate Evaluated Result Row below the input formula
             HorizontalDivider(color = colors.borderLight, thickness = 1.dp)
 
             val hasInput = currentInput.text.isNotBlank()
-            val hasError = livePreview.error != null
+            val isError = hasInput && livePreview.error != null
             val formattedPreview = livePreview.formatted
-            val canCopyPreview = !formattedPreview.isNullOrEmpty()
+            val rowBg = if (isError) colors.errorBg else colors.bgSubtle
+            val gutterBg = if (isError) colors.errorBg else colors.bgHover
+            val displayText = when {
+                !hasInput || livePreview.isComment -> ""
+                isError -> livePreview.error ?: "Error"
+                else -> formattedPreview ?: ""
+            }
+            val canCopyPreview = !isError && displayText.isNotEmpty()
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(IntrinsicSize.Min)
-                    .heightIn(min = 38.dp)
-                    .background(colors.bgSubtle),
+                    .background(rowBg),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Vertically highlighted left gutter: Equal sign (=)
+                // Vertically highlighted left gutter: Equal sign (=) or (!)
                 Box(
                     modifier = Modifier
                         .width(LEFT_GUTTER_WIDTH)
                         .fillMaxHeight()
-                        .background(colors.bgHover),
+                        .background(gutterBg),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (hasError) "!" else "=",
-                        color = when {
-                            hasError -> colors.errorText
-                            hasInput && formattedPreview != null -> colors.accentOrange
-                            else -> colors.textMuted
-                        },
+                        text = if (isError) "!" else "=",
+                        color = if (isError) colors.errorText else colors.accentOrange,
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
@@ -838,39 +802,24 @@ private fun BottomCalculatorInputPanel(
 
                 VerticalDivider(color = colors.borderLight, thickness = 1.dp)
 
-                val resultText = when {
-                    !hasInput -> "Result preview appears here"
-                    livePreview.isComment -> "Comment"
-                    hasError -> livePreview.error ?: "Invalid expression"
-                    formattedPreview != null -> formattedPreview
-                    else -> "…"
-                }
-
-                val resultColor = when {
-                    !hasInput || livePreview.isComment -> colors.textMuted
-                    hasError -> colors.errorText
-                    else -> colors.textPrimary
-                }
-
+                // Evaluated Result
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .clickable(enabled = canCopyPreview) {
-                            formattedPreview?.let(onCopyPreview)
+                            onCopyPreview(displayText)
                         }
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
-                        text = resultText,
-                        color = resultColor,
+                        text = displayText.ifEmpty { " " },
+                        color = if (isError) colors.errorText else colors.textPrimary,
                         fontSize = 14.sp,
+                        lineHeight = 18.sp,
                         fontFamily = FontFamily.Monospace,
-                        lineHeight = 20.sp,
-                        fontWeight = if (formattedPreview != null) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
@@ -881,18 +830,20 @@ private fun BottomCalculatorInputPanel(
                     modifier = Modifier
                         .width(RIGHT_GUTTER_WIDTH)
                         .fillMaxHeight()
-                        .background(colors.bgHover)
+                        .background(gutterBg)
                         .clickable(enabled = canCopyPreview) {
-                            formattedPreview?.let(onCopyPreview)
+                            onCopyPreview(displayText)
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "Copy Result Preview",
-                        tint = if (canCopyPreview) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f),
-                        modifier = Modifier.size(14.dp)
-                    )
+                    if (canCopyPreview) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy Result Preview",
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }
@@ -907,7 +858,7 @@ private fun EmptyHistoryPlaceholder(
     val colors = LocalNumColors.current
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .padding(28.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
