@@ -50,7 +50,7 @@ class CalculatorViewModel : ViewModel() {
         private const val KEY_THEME = "theme_mode_v1"
 
         val DEFAULT_EXPRESSIONS = listOf(
-            "# Welcome to Num — Native MathJS Calculator",
+            "# Welcome to Numeric — Interactive Math Calculator",
             "radius = 12.5 cm",
             "area = pi * radius^2 in cm2",
             "speed = 110 km/h in m/s",

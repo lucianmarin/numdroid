@@ -19,12 +19,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -124,8 +126,6 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(colors.bgApp)
-            .statusBarsPadding()
-            .navigationBarsPadding()
             .imePadding()
     ) {
         // Top Header Bar
@@ -146,6 +146,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         }
 
         // Reverse History List (bottom input card at index 0, followed by newest-to-oldest history cards)
+        val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -155,7 +156,12 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                 state = listState,
                 reverseLayout = true,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    end = 12.dp,
+                    top = 10.dp,
+                    bottom = 10.dp + navBarBottom
+                ),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item(key = "bottom_input_card") {
@@ -250,6 +256,7 @@ private fun TopHeaderBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
