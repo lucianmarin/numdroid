@@ -62,12 +62,12 @@ val DarkSyntaxPalette = SyntaxPalette(
     comment = Color(0xFF6B7280),
     string = Color(0xFFFBBF24),
     number = Color(0xFFF3F4F6),
-    operator = Color(0xFFF85ACB),
-    function = Color(0xFFA78BFA),
+    operator = Color(0xFF432B7A),
+    function = Color(0xFF6441B3),
     variable = Color(0xFF34D399),
-    constant = Color(0xFFF85ACB),
-    keyword = Color(0xFFC4B5FD),
-    unit = Color(0xFF8B5CF6),
+    constant = Color(0xFF432B7A),
+    keyword = Color(0xFFF85ACB),
+    unit = Color(0xFF6441B3),
     punctuation = Color(0xFF9CA3AF)
 )
 
