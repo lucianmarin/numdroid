@@ -1140,27 +1140,12 @@ private fun SyntaxCatalogItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = item.name,
-                        color = colors.textPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        color = colors.bgSurface,
-                        shape = CircleShape,
-                        modifier = Modifier.border(1.dp, colors.borderLight, CircleShape)
-                    ) {
-                        Text(
-                            text = item.subcategory,
-                            color = colors.textMuted,
-                            fontSize = 10.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
-                    }
-                }
+                Text(
+                    text = item.name,
+                    color = colors.textPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
 
                 Surface(
                     color = colors.accentPinkSoft,
