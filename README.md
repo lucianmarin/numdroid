@@ -1,4 +1,10 @@
-# Numeric (`com.lucianmarin.num`)
+# Numeric
+
+![feature](feature.png)
+
+Light              |Dark
+:-----------------:|:---------------:
+![light](light.jpg)|![dark](dark.jpg)
 
 Native Android calculator app built with **Kotlin** and **Jetpack Compose**, featuring a comprehensive native Kotlin port of the **MathJS** expression engine, syntax highlighting with light and dark mode themes, a single bottom input bar with live preview, and a reactive, editable reverse history feed.
 
