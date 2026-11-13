@@ -20,7 +20,6 @@ class MainActivity : ComponentActivity() {
     private val viewModel: CalculatorViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(
                 Color.TRANSPARENT,
@@ -31,6 +30,7 @@ class MainActivity : ComponentActivity() {
                 Color.TRANSPARENT
             )
         )
+        super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }

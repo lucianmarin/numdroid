@@ -26,7 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -127,11 +127,15 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         listState.animateScrollToItem(state.history.size)
     }
 
+    val density = LocalDensity.current
+    val navBarBottom = WindowInsets.navigationBars.getBottom(density)
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val bottomInsetPadding = with(density) { (navBarBottom - imeBottom).coerceAtLeast(0).toDp() }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colors.bgApp)
-            .navigationBarsPadding()
             .imePadding()
     ) {
         // Top Header Bar
@@ -164,7 +168,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                     start = 12.dp,
                     end = 12.dp,
                     top = LIST_VERTICAL_PADDING,
-                    bottom = LIST_VERTICAL_PADDING
+                    bottom = LIST_VERTICAL_PADDING + bottomInsetPadding
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom)
             ) {
@@ -212,7 +216,8 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             sheetState = sheetState,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             containerColor = colors.bgSurface,
-            contentColor = colors.textPrimary
+            contentColor = colors.textPrimary,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
         ) {
             SyntaxCatalogBottomSheet(
                 onInsertExpression = { expr, asNewItem ->
@@ -1069,9 +1074,10 @@ private fun SyntaxCatalogBottomSheet(
         HorizontalDivider(color = colors.borderLight)
 
         // Catalog Items List
+        val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 12.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 12.dp + navBarBottom),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             for (group in filteredGroups) {
