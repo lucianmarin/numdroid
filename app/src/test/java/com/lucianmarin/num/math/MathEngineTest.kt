@@ -156,4 +156,31 @@ class MathEngineTest {
         }
         assertTrue("Expected at least 100 catalog items tested, got $testedCount", testedCount >= 100)
     }
+
+    @Test
+    fun testSyntaxHighlighterLookaheadAndCache() {
+        val assignTokens = SyntaxHighlighter.tokenize("foo = bar == baz(1) # tail")
+            .filter { it.type != SyntaxTokenType.PLAIN }
+        assertEquals(
+            listOf(
+                SyntaxToken(SyntaxTokenType.VARIABLE, "foo"),
+                SyntaxToken(SyntaxTokenType.OPERATOR, "="),
+                SyntaxToken(SyntaxTokenType.UNIT, "bar"),
+                SyntaxToken(SyntaxTokenType.OPERATOR, "=="),
+                SyntaxToken(SyntaxTokenType.FUNCTION, "baz"),
+                SyntaxToken(SyntaxTokenType.PUNCTUATION, "("),
+                SyntaxToken(SyntaxTokenType.NUMBER, "1"),
+                SyntaxToken(SyntaxTokenType.PUNCTUATION, ")"),
+                SyntaxToken(SyntaxTokenType.COMMENT, "# tail")
+            ),
+            assignTokens
+        )
+
+        val expr = "area = pi * radius^2 in cm2"
+        val first = SyntaxHighlighter.highlight(expr, LightSyntaxPalette)
+        val second = SyntaxHighlighter.highlight(expr, LightSyntaxPalette)
+        assertTrue(first === second)
+        assertEquals(expr, first.text)
+        assertEquals("1024", SyntaxCatalog.evaluatedExampleFor("2^10"))
+    }
 }

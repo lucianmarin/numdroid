@@ -1,0 +1,50 @@
+Privacy Policy for Numeric
+
+Effective Date: November 18, 2026
+Application: Numeric (Package ID: com.lucianmarin.num)
+Developer: Lucian Marin
+
+1. Overview
+Numeric ("the App") is an offline Android calculator application developed by Lucian Marin for evaluating mathematical expressions, unit conversions, complex numbers, matrices, and custom functions. This Privacy Policy explains how the App handles information when you use it.
+
+In short: Numeric works completely offline and does not collect, transmit, rent, or sell any personal or sensitive user data. The App contains no user accounts, no analytics SDKs, no crash-reporting trackers, and no advertising networks.
+
+2. Personal Data Collection and Use
+We do not collect, store, or process any personally identifiable information (PII) or sensitive user data on any developer-controlled servers. Specifically, the App does not collect:
+- Names, email addresses, phone numbers, or account credentials
+- Precise or coarse device location data
+- Contacts, call logs, SMS, photos, microphone recordings, or camera data
+- Advertising identifiers (AAID), device fingerprinting, or usage analytics
+
+3. Local On-Device Data Storage
+All application data created during your use of Numeric is stored exclusively on your device within the App's private sandboxed storage using Android SharedPreferences (`num_prefs`):
+- Calculation History (`history_json_v1`): Your saved formula lines (each line's local UUID and expression text) are stored locally so your worksheet persists across app sessions.
+- Current Input Draft (`current_input_v1`): The expression text currently entered in the bottom input bar is saved locally to preserve unsent input across restarts.
+- Theme Preference (`theme_mode_v1`): Your selected appearance mode (System, Light, or Dark) is stored locally.
+
+Evaluated results, defined variables, custom functions, and undo history (up to 30 snapshots) are computed and held only in volatile memory while the App is running and are not written separately to disk.
+
+Data Retention and Deletion:
+You have full control over all locally stored data. You can remove individual lines with the close (`×`) button, clear all saved expressions and the active input at any time via the "Clear" button in the top toolbar, clear the App's storage in Android system settings, or uninstall the App. Because Android backup (`allowBackup="true"`) is enabled in the App manifest, your operating system may back up `num_prefs` if Android Auto Backup is enabled in your device's Google backup settings.
+
+4. Network Connections and Third-Party Services
+Numeric operates entirely offline on your device. All expression parsing, math evaluation, syntax highlighting, and Syntax Reference examples execute locally. The App makes no internet or network connections and sends no data to any external or third-party servers.
+
+5. Android Permissions Used
+Numeric requests no Android system or runtime permissions—including no `INTERNET` permission—in its application manifest.
+
+6. Clipboard Usage
+When you tap the Copy icon on a history result or live preview row (or tap the live preview result text), the App copies the formatted result string ("Numeric Result") to your device clipboard at your explicit action. The App never reads from your clipboard.
+
+7. Children's Privacy
+Numeric does not knowingly collect any personal information from anyone, including children under the age of 13 (or the applicable age of digital consent in your jurisdiction).
+
+8. Changes to This Privacy Policy
+We may update this Privacy Policy from time to time to reflect changes to the App or regulatory requirements. Any updates will be published in the PRIVACY file in the project repository with an updated Effective Date.
+
+9. Contact Information
+If you have any questions or concerns about this Privacy Policy or the App's privacy practices, please contact:
+
+Lucian Marin
+Gmail: marin.lucian
+Phone: +40 726 210 589

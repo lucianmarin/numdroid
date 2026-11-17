@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,17 +14,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
@@ -43,20 +41,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Functions
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -64,12 +57,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -77,36 +70,51 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucianmarin.num.math.EvalLineResult
-import com.lucianmarin.num.math.MathEngine
-import com.lucianmarin.num.math.MathScope
 import com.lucianmarin.num.math.MathValue
 import com.lucianmarin.num.math.SyntaxCatalog
 import com.lucianmarin.num.math.SyntaxCatalogItem
 import com.lucianmarin.num.math.SyntaxHighlighter
 import com.lucianmarin.num.ui.theme.LocalNumColors
-import com.lucianmarin.num.ui.theme.ThemeMode
 
 private val LEFT_GUTTER_WIDTH = 40.dp
 private val RIGHT_GUTTER_WIDTH = 40.dp
 private val LIST_VERTICAL_PADDING = 10.dp
+private val CARD_SHAPE = RoundedCornerShape(12.dp)
+private val FORMULA_KEYBOARD_OPTIONS = KeyboardOptions(
+    capitalization = KeyboardCapitalization.None,
+    autoCorrectEnabled = false,
+    keyboardType = KeyboardType.Text,
+    imeAction = ImeAction.Done
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,6 +125,26 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
     val syntaxVisualTransformation = remember(colors.syntax) {
         SyntaxHighlighter.visualTransformation(colors.syntax)
     }
+    val formulaTextStyle = remember(colors.syntax.plain) {
+        TextStyle(
+            color = colors.syntax.plain,
+            fontSize = 15.sp,
+            fontFamily = FontFamily.Monospace,
+            lineHeight = 20.sp
+        )
+    }
+    val cursorBrush = remember(colors.accentOrange) { SolidColor(colors.accentOrange) }
+    val cardBorder = remember(colors.borderLight) { BorderStroke(1.dp, colors.borderLight) }
+    val onCopyText = remember(context) { { text: String -> copyToClipboard(context, text) } }
+    val bottomInputFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var focusBottomInputTrigger by remember { mutableIntStateOf(0) }
+    val onInsertLineRef = remember<(Int) -> Unit>(viewModel) {
+        { lineNumber ->
+            viewModel.insertIntoCurrentInput("\$$lineNumber")
+            focusBottomInputTrigger++
+        }
+    }
 
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = state.history.size
@@ -125,6 +153,20 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
     // Scroll to the bottom input card when history size changes
     LaunchedEffect(state.history.size) {
         listState.animateScrollToItem(state.history.size)
+    }
+
+    LaunchedEffect(focusBottomInputTrigger) {
+        if (focusBottomInputTrigger > 0) {
+            val isBottomVisible = listState.layoutInfo.visibleItemsInfo.any { it.key == "bottom_input_card" }
+            if (!isBottomVisible) {
+                listState.animateScrollToItem(state.history.size)
+            }
+            withFrameNanos { }
+            runCatching {
+                bottomInputFocusRequester.requestFocus()
+                keyboardController?.show()
+            }
+        }
     }
 
     val density = LocalDensity.current
@@ -151,7 +193,10 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         AnimatedVisibility(visible = state.showScopeBar) {
             ScopeAndStatsBar(
                 summary = state.scopeSummary,
-                onInsertToken = { token -> viewModel.insertIntoCurrentInput(token) }
+                onInsertToken = { token ->
+                    viewModel.insertIntoCurrentInput(token)
+                    focusBottomInputTrigger++
+                }
             )
         }
 
@@ -174,35 +219,43 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             ) {
                 itemsIndexed(
                     items = state.history,
-                    key = { _, item -> item.id }
+                    key = { _, item -> item.id },
+                    contentType = { _, _ -> "history_card" }
                 ) { index, item ->
                     val lineNumber = index + 1
+                    val result = item.result
                     HistoryEntryCard(
+                        id = item.id,
                         lineNumber = lineNumber,
-                        item = item,
+                        expression = item.expression,
+                        formattedResult = result.formatted,
+                        errorMessage = result.error,
+                        isComment = result.isComment,
+                        isReferenced = item.isReferenced,
+                        formulaTextStyle = formulaTextStyle,
+                        cursorBrush = cursorBrush,
+                        cardBorder = cardBorder,
                         visualTransformation = syntaxVisualTransformation,
-                        onExpressionChange = { newExpr ->
-                            viewModel.updateHistoryItem(item.id, newExpr)
-                        },
-                        onDelete = { viewModel.deleteHistoryItem(item.id) },
-                        onCopyResult = { textToCopy ->
-                            copyToClipboard(context, textToCopy)
-                        },
-                        onInsertResult = {
-                            viewModel.insertIntoCurrentInput("\$$lineNumber")
-                        }
+                        onExpressionChange = viewModel::updateHistoryItem,
+                        onDelete = viewModel::deleteHistoryItem,
+                        onCopyResult = onCopyText,
+                        onInsertResult = onInsertLineRef
                     )
                 }
 
-                item(key = "bottom_input_card") {
+                item(key = "bottom_input_card", contentType = "bottom_input") {
                     BottomCalculatorInputPanel(
                         lineNumber = state.history.size + 1,
                         currentInput = state.currentInput,
                         livePreview = state.livePreview,
+                        formulaTextStyle = formulaTextStyle,
+                        cursorBrush = cursorBrush,
+                        cardBorder = cardBorder,
                         visualTransformation = syntaxVisualTransformation,
+                        focusRequester = bottomInputFocusRequester,
                         onInputChange = viewModel::onInputChange,
                         onSubmit = viewModel::submitCurrentInput,
-                        onCopyPreview = { text -> copyToClipboard(context, text) }
+                        onCopyPreview = onCopyText
                     )
                 }
             }
@@ -494,209 +547,238 @@ private fun StatBadge(
 }
 
 @Composable
+private fun ThreeColumnRow(
+    dividerColor: Color,
+    leftGutter: @Composable () -> Unit,
+    center: @Composable () -> Unit,
+    rightGutter: @Composable () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val leftWidthPx = with(density) { LEFT_GUTTER_WIDTH.roundToPx() }
+    val rightWidthPx = with(density) { RIGHT_GUTTER_WIDTH.roundToPx() }
+    val dividerWidthPx = with(density) { 1.dp.roundToPx().coerceAtLeast(1) }
+
+    Layout(
+        contents = listOf(leftGutter, center, rightGutter),
+        modifier = modifier.drawBehind {
+            val divW = dividerWidthPx.toFloat()
+            drawRect(
+                color = dividerColor,
+                topLeft = Offset(leftWidthPx.toFloat(), 0f),
+                size = Size(divW, size.height)
+            )
+            drawRect(
+                color = dividerColor,
+                topLeft = Offset(size.width - rightWidthPx - divW, 0f),
+                size = Size(divW, size.height)
+            )
+        }
+    ) { (leftMeasurables, centerMeasurables, rightMeasurables), constraints ->
+        val totalWidth = if (constraints.hasBoundedWidth) {
+            constraints.maxWidth
+        } else {
+            leftWidthPx + rightWidthPx + dividerWidthPx * 2
+        }
+        val centerWidth = (totalWidth - leftWidthPx - rightWidthPx - dividerWidthPx * 2).coerceAtLeast(0)
+        val centerPlaceable = centerMeasurables.firstOrNull()?.measure(
+            Constraints(
+                minWidth = centerWidth,
+                maxWidth = centerWidth,
+                minHeight = constraints.minHeight,
+                maxHeight = constraints.maxHeight
+            )
+        )
+        val rowHeight = centerPlaceable?.height ?: 0
+        val leftPlaceable = leftMeasurables.firstOrNull()?.measure(
+            Constraints.fixed(leftWidthPx, rowHeight)
+        )
+        val rightPlaceable = rightMeasurables.firstOrNull()?.measure(
+            Constraints.fixed(rightWidthPx, rowHeight)
+        )
+
+        layout(totalWidth, rowHeight) {
+            leftPlaceable?.placeRelative(0, 0)
+            centerPlaceable?.placeRelative(leftWidthPx + dividerWidthPx, 0)
+            rightPlaceable?.placeRelative(totalWidth - rightWidthPx, 0)
+        }
+    }
+}
+
+@Composable
 private fun HistoryEntryCard(
+    id: String,
     lineNumber: Int,
-    item: HistoryItem,
+    expression: String,
+    formattedResult: String?,
+    errorMessage: String?,
+    isComment: Boolean,
+    isReferenced: Boolean,
+    formulaTextStyle: TextStyle,
+    cursorBrush: Brush,
+    cardBorder: BorderStroke,
     visualTransformation: androidx.compose.ui.text.input.VisualTransformation,
-    onExpressionChange: (String) -> Unit,
-    onDelete: () -> Unit,
+    onExpressionChange: (String, String) -> Unit,
+    onDelete: (String) -> Unit,
     onCopyResult: (String) -> Unit,
-    onInsertResult: () -> Unit
+    onInsertResult: (Int) -> Unit
 ) {
     val colors = LocalNumColors.current
-    val result = item.result
+    val focusManager = LocalFocusManager.current
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var isFocused by remember { mutableStateOf(false) }
     var cardSize by remember { mutableStateOf(IntSize.Zero) }
-    val density = LocalDensity.current
-    val imeBottom = WindowInsets.ime.getBottom(density)
 
-    LaunchedEffect(isFocused, imeBottom) {
-        if (isFocused && imeBottom > 0) {
-            withFrameNanos { }
-            val padPx = with(density) { LIST_VERTICAL_PADDING.toPx() }
-            val rect = if (cardSize != IntSize.Zero) {
-                Rect(
-                    left = 0f,
-                    top = -padPx,
-                    right = cardSize.width.toFloat(),
-                    bottom = cardSize.height.toFloat() + padPx
-                )
-            } else {
-                null
+    if (isFocused) {
+        val density = LocalDensity.current
+        val imeBottom = WindowInsets.ime.getBottom(density)
+        LaunchedEffect(imeBottom) {
+            if (imeBottom > 0) {
+                withFrameNanos { }
+                val padPx = with(density) { LIST_VERTICAL_PADDING.toPx() }
+                val rect = if (cardSize != IntSize.Zero) {
+                    Rect(
+                        left = 0f,
+                        top = -padPx,
+                        right = cardSize.width.toFloat(),
+                        bottom = cardSize.height.toFloat() + padPx
+                    )
+                } else {
+                    null
+                }
+                bringIntoViewRequester.bringIntoView(rect)
             }
-            bringIntoViewRequester.bringIntoView(rect)
         }
     }
 
-    val cardShape = RoundedCornerShape(12.dp)
     Surface(
         color = colors.bgSurface,
-        shape = cardShape,
+        shape = CARD_SHAPE,
+        border = cardBorder,
         modifier = Modifier
             .fillMaxWidth()
             .onSizeChanged { cardSize = it }
             .bringIntoViewRequester(bringIntoViewRequester)
-            .clip(cardShape)
-            .border(1.dp, colors.borderLight, cardShape)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Row 1: Editable Input Formula Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Vertically highlighted left gutter: Line number
-                Box(
-                    modifier = Modifier
-                        .width(LEFT_GUTTER_WIDTH)
-                        .fillMaxHeight()
-                        .background(colors.bgHover),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "\$$lineNumber",
-                        color = colors.accentBlue,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Medium
+            ThreeColumnRow(
+                dividerColor = colors.borderLight,
+                leftGutter = {
+                    Box(
+                        modifier = Modifier.background(colors.bgHover),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "\$$lineNumber",
+                            color = colors.accentBlue,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
+                center = {
+                    BasicTextField(
+                        value = expression,
+                        onValueChange = { newExpr -> onExpressionChange(id, newExpr) },
+                        singleLine = true,
+                        textStyle = formulaTextStyle,
+                        cursorBrush = cursorBrush,
+                        visualTransformation = visualTransformation,
+                        keyboardOptions = FORMULA_KEYBOARD_OPTIONS,
+                        keyboardActions = remember(focusManager) {
+                            KeyboardActions(onDone = { focusManager.clearFocus() })
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isFocused = it.isFocused }
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
                     )
+                },
+                rightGutter = {
+                    Box(
+                        modifier = Modifier
+                            .background(colors.bgHover)
+                            .clickable(enabled = !isReferenced) { onDelete(id) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isReferenced) Icons.Default.Link else Icons.Default.Close,
+                            contentDescription = if (isReferenced) "Line Referenced" else "Remove Line",
+                            tint = if (isReferenced) colors.textMuted else colors.textSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
-
-                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                // Editable syntax-highlighted formula field
-                BasicTextField(
-                    value = item.expression,
-                    onValueChange = onExpressionChange,
-                    singleLine = true,
-                    textStyle = TextStyle(
-                        color = colors.textPrimary,
-                        fontSize = 15.sp,
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 20.sp
-                    ),
-                    cursorBrush = SolidColor(colors.accentOrange),
-                    visualTransformation = visualTransformation,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.None,
-                        autoCorrectEnabled = false,
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Done
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .onFocusChanged { isFocused = it.isFocused }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                )
-
-                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                // Vertically highlighted right gutter: Clear / Remove (X) icon or Referenced icon
-                val isReferenced = item.isReferenced
-                Box(
-                    modifier = Modifier
-                        .width(RIGHT_GUTTER_WIDTH)
-                        .fillMaxHeight()
-                        .background(colors.bgHover)
-                        .clickable(enabled = !isReferenced) { onDelete() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isReferenced) Icons.Default.Link else Icons.Default.Close,
-                        contentDescription = if (isReferenced) "Line Referenced" else "Remove Line",
-                        tint = if (isReferenced) colors.textMuted else colors.textSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
+            )
 
             // Row 2: Separate Result Row below the formula
-            if (!result.isComment) {
+            if (!isComment) {
                 HorizontalDivider(color = colors.borderLight, thickness = 1.dp)
 
-                val isError = result.error != null
+                val isError = errorMessage != null
                 val rowBg = if (isError) colors.errorBg else colors.bgSubtle
                 val gutterBg = if (isError) colors.errorBg else colors.bgHover
-                val displayText = if (isError) {
-                    result.error ?: "Error"
-                } else {
-                    result.formatted ?: ""
-                }
+                val displayText = if (isError) errorMessage else (formattedResult ?: "")
                 val canCopy = !isError && displayText.isNotEmpty()
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(IntrinsicSize.Min)
-                        .background(rowBg),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Vertically highlighted left gutter: Equal sign (=) or (!)
-                    Box(
-                        modifier = Modifier
-                            .width(LEFT_GUTTER_WIDTH)
-                            .fillMaxHeight()
-                            .background(gutterBg),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (isError) "!" else "=",
-                            color = if (isError) colors.errorText else colors.accentOrange,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                    // Evaluated Result
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(enabled = canCopy) {
-                                onInsertResult()
-                            }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Text(
-                            text = displayText.ifEmpty { " " },
-                            color = if (isError) colors.errorText else colors.textPrimary,
-                            fontSize = 14.sp,
-                            lineHeight = 18.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                    // Vertically highlighted right gutter: Copy icon
-                    Box(
-                        modifier = Modifier
-                            .width(RIGHT_GUTTER_WIDTH)
-                            .fillMaxHeight()
-                            .background(gutterBg)
-                            .clickable(enabled = canCopy) {
-                                onCopyResult(displayText)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (canCopy) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy Result",
-                                tint = colors.textSecondary,
-                                modifier = Modifier.size(14.dp)
+                ThreeColumnRow(
+                    dividerColor = colors.borderLight,
+                    modifier = Modifier.background(rowBg),
+                    leftGutter = {
+                        Box(
+                            modifier = Modifier.background(gutterBg),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isError) "!" else "=",
+                                color = if (isError) colors.errorText else colors.accentOrange,
+                                fontSize = 14.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
                             )
                         }
+                    },
+                    center = {
+                        Box(
+                            modifier = Modifier
+                                .clickable(enabled = canCopy) {
+                                    onInsertResult(lineNumber)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = displayText.ifEmpty { " " },
+                                color = if (isError) colors.errorText else colors.textPrimary,
+                                fontSize = 14.sp,
+                                lineHeight = 18.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    },
+                    rightGutter = {
+                        Box(
+                            modifier = Modifier
+                                .background(gutterBg)
+                                .clickable(enabled = canCopy) {
+                                    onCopyResult(displayText)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (canCopy) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Copy Result",
+                                    tint = colors.textSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
                     }
-                }
+                )
             }
         }
     }
@@ -705,126 +787,112 @@ private fun HistoryEntryCard(
 @Composable
 private fun BottomCalculatorInputPanel(
     lineNumber: Int,
-    currentInput: androidx.compose.ui.text.input.TextFieldValue,
+    currentInput: TextFieldValue,
     livePreview: EvalLineResult,
+    formulaTextStyle: TextStyle,
+    cursorBrush: Brush,
+    cardBorder: BorderStroke,
     visualTransformation: androidx.compose.ui.text.input.VisualTransformation,
-    onInputChange: (androidx.compose.ui.text.input.TextFieldValue) -> Unit,
+    focusRequester: FocusRequester,
+    onInputChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
     onCopyPreview: (String) -> Unit
 ) {
     val colors = LocalNumColors.current
-    val cardShape = RoundedCornerShape(12.dp)
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var isFocused by remember { mutableStateOf(false) }
     var cardSize by remember { mutableStateOf(IntSize.Zero) }
-    val density = LocalDensity.current
-    val imeBottom = WindowInsets.ime.getBottom(density)
 
-    LaunchedEffect(isFocused, imeBottom) {
-        if (isFocused && imeBottom > 0) {
-            withFrameNanos { }
-            val padPx = with(density) { LIST_VERTICAL_PADDING.toPx() }
-            val rect = if (cardSize != IntSize.Zero) {
-                Rect(
-                    left = 0f,
-                    top = -padPx,
-                    right = cardSize.width.toFloat(),
-                    bottom = cardSize.height.toFloat() + padPx
-                )
-            } else {
-                null
+    if (isFocused) {
+        val density = LocalDensity.current
+        val imeBottom = WindowInsets.ime.getBottom(density)
+        LaunchedEffect(imeBottom) {
+            if (imeBottom > 0) {
+                withFrameNanos { }
+                val padPx = with(density) { LIST_VERTICAL_PADDING.toPx() }
+                val rect = if (cardSize != IntSize.Zero) {
+                    Rect(
+                        left = 0f,
+                        top = -padPx,
+                        right = cardSize.width.toFloat(),
+                        bottom = cardSize.height.toFloat() + padPx
+                    )
+                } else {
+                    null
+                }
+                bringIntoViewRequester.bringIntoView(rect)
             }
-            bringIntoViewRequester.bringIntoView(rect)
         }
     }
 
     Surface(
         color = colors.bgSurface,
-        shape = cardShape,
+        shape = CARD_SHAPE,
+        border = cardBorder,
         modifier = Modifier
             .fillMaxWidth()
             .onSizeChanged { cardSize = it }
             .bringIntoViewRequester(bringIntoViewRequester)
-            .clip(cardShape)
-            .border(1.dp, colors.borderLight, cardShape)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Row 1: Single Formula Input Field
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Vertically highlighted left gutter: Line number
-                Box(
-                    modifier = Modifier
-                        .width(LEFT_GUTTER_WIDTH)
-                        .fillMaxHeight()
-                        .background(colors.bgHover),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "\$$lineNumber",
-                        color = colors.accentBlue,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                BasicTextField(
-                    value = currentInput,
-                    onValueChange = onInputChange,
-                    singleLine = true,
-                    textStyle = TextStyle(
-                        color = colors.textPrimary,
-                        fontSize = 15.sp,
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 20.sp
-                    ),
-                    cursorBrush = SolidColor(colors.accentOrange),
-                    visualTransformation = visualTransformation,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.None,
-                        autoCorrectEnabled = false,
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSend = { onSubmit() },
-                        onDone = { onSubmit() }
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .onFocusChanged { isFocused = it.isFocused }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                )
-
-                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                // Vertically highlighted right gutter: Clear (X) icon
-                val hasText = currentInput.text.isNotEmpty()
-                Box(
-                    modifier = Modifier
-                        .width(RIGHT_GUTTER_WIDTH)
-                        .fillMaxHeight()
-                        .background(colors.bgHover)
-                        .clickable(enabled = hasText) {
-                            onInputChange(androidx.compose.ui.text.input.TextFieldValue(""))
+            ThreeColumnRow(
+                dividerColor = colors.borderLight,
+                leftGutter = {
+                    Box(
+                        modifier = Modifier.background(colors.bgHover),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "\$$lineNumber",
+                            color = colors.accentBlue,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
+                center = {
+                    BasicTextField(
+                        value = currentInput,
+                        onValueChange = onInputChange,
+                        singleLine = true,
+                        textStyle = formulaTextStyle,
+                        cursorBrush = cursorBrush,
+                        visualTransformation = visualTransformation,
+                        keyboardOptions = FORMULA_KEYBOARD_OPTIONS,
+                        keyboardActions = remember(onSubmit) {
+                            KeyboardActions(
+                                onSend = { onSubmit() },
+                                onDone = { onSubmit() }
+                            )
                         },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Clear Input",
-                        tint = if (hasText) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { isFocused = it.isFocused }
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
                     )
+                },
+                rightGutter = {
+                    val hasText = currentInput.text.isNotEmpty()
+                    Box(
+                        modifier = Modifier
+                            .background(colors.bgHover)
+                            .clickable(enabled = hasText) {
+                                onInputChange(TextFieldValue(""))
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear Input",
+                            tint = if (hasText) colors.textSecondary else colors.textMuted.copy(alpha = 0.4f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
-            }
+            )
 
             // Row 2: Separate Evaluated Result Row below the input formula
             HorizontalDivider(color = colors.borderLight, thickness = 1.dp)
@@ -841,76 +909,62 @@ private fun BottomCalculatorInputPanel(
             }
             val canCopyPreview = !isError && displayText.isNotEmpty()
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min)
-                    .background(rowBg),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Vertically highlighted left gutter: Equal sign (=) or (!)
-                Box(
-                    modifier = Modifier
-                        .width(LEFT_GUTTER_WIDTH)
-                        .fillMaxHeight()
-                        .background(gutterBg),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isError) "!" else "=",
-                        color = if (isError) colors.errorText else colors.accentOrange,
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                // Evaluated Result
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clickable(enabled = canCopyPreview) {
-                            onCopyPreview(displayText)
-                        }
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = displayText.ifEmpty { " " },
-                        color = if (isError) colors.errorText else colors.textPrimary,
-                        fontSize = 14.sp,
-                        lineHeight = 18.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                VerticalDivider(color = colors.borderLight, thickness = 1.dp)
-
-                // Vertically highlighted right gutter: Copy icon
-                Box(
-                    modifier = Modifier
-                        .width(RIGHT_GUTTER_WIDTH)
-                        .fillMaxHeight()
-                        .background(gutterBg)
-                        .clickable(enabled = canCopyPreview) {
-                            onCopyPreview(displayText)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (canCopyPreview) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy Result Preview",
-                            tint = colors.textSecondary,
-                            modifier = Modifier.size(14.dp)
+            ThreeColumnRow(
+                dividerColor = colors.borderLight,
+                modifier = Modifier.background(rowBg),
+                leftGutter = {
+                    Box(
+                        modifier = Modifier.background(gutterBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isError) "!" else "=",
+                            color = if (isError) colors.errorText else colors.accentOrange,
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
                         )
                     }
+                },
+                center = {
+                    Box(
+                        modifier = Modifier
+                            .clickable(enabled = canCopyPreview) {
+                                onCopyPreview(displayText)
+                            }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = displayText.ifEmpty { " " },
+                            color = if (isError) colors.errorText else colors.textPrimary,
+                            fontSize = 14.sp,
+                            lineHeight = 18.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                },
+                rightGutter = {
+                    Box(
+                        modifier = Modifier
+                            .background(gutterBg)
+                            .clickable(enabled = canCopyPreview) {
+                                onCopyPreview(displayText)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (canCopyPreview) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Result Preview",
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
-            }
+            )
         }
     }
 }
@@ -1116,7 +1170,7 @@ private fun SyntaxCatalogItemCard(
         SyntaxHighlighter.highlight(item.expr, colors.syntax)
     }
     val evaluatedExample = remember(item.expr) {
-        MathEngine.evaluateSingleLine(item.expr, MathScope()).formatted ?: ""
+        SyntaxCatalog.evaluatedExampleFor(item.expr)
     }
 
     val cardShape = RoundedCornerShape(14.dp)
@@ -1193,6 +1247,7 @@ private fun SyntaxCatalogItemCard(
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
                     Text(
                         text = highlightedExpr,
+                        color = colors.syntax.plain,
                         fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace
                     )

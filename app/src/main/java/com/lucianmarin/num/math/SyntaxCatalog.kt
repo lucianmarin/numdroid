@@ -404,4 +404,16 @@ object SyntaxCatalog {
     )
 
     val totalCount: Int = groups.sumOf { it.items.size }
+
+    private val evaluatedExamples: Map<String, String> by lazy {
+        groups.asSequence()
+            .flatMap { it.items.asSequence() }
+            .distinctBy { it.expr }
+            .associate { item ->
+                item.expr to (MathEngine.evaluateSingleLine(item.expr, MathScope()).formatted ?: "")
+            }
+    }
+
+    fun evaluatedExampleFor(expr: String): String =
+        evaluatedExamples[expr] ?: (MathEngine.evaluateSingleLine(expr, MathScope()).formatted ?: "")
 }

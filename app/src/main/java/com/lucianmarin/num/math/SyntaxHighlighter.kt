@@ -1,11 +1,11 @@
 package com.lucianmarin.num.math
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
@@ -29,6 +29,7 @@ data class SyntaxToken(
     val text: String
 )
 
+@Immutable
 data class SyntaxPalette(
     val plain: Color,
     val comment: Color,
@@ -84,6 +85,23 @@ object SyntaxHighlighter {
         "(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*')|(\\b(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|\\d+(?:\\.\\d*)?(?:[eE][+-]?\\d+)?|\\.\\d+(?:[eE][+-]?\\d+)?)\\b)|([a-zA-Z_\\$\u00B5][a-zA-Z0-9_\\$]*)|(==|!=|<=|>=|>>>|<<|>>|\\.\\*|\\.\\^|\\.\\/|\\^\\||&&|\\|\\||[+\\-*/^%=<>!&|~?:×÷−])|([()\\[\\]{}.,;'])|(\\s+)"
     )
 
+    private data class HighlightCacheKey(
+        val text: String,
+        val palette: SyntaxPalette,
+        val scopeNames: Set<String>
+    )
+
+    private const val MAX_HIGHLIGHT_CACHE_SIZE = 256
+    private val highlightCache = object : LinkedHashMap<HighlightCacheKey, AnnotatedString>(
+        MAX_HIGHLIGHT_CACHE_SIZE,
+        0.75f,
+        true
+    ) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<HighlightCacheKey, AnnotatedString>?
+        ): Boolean = size > MAX_HIGHLIGHT_CACHE_SIZE
+    }
+
     fun tokenize(rawLine: String, scopeNames: Set<String> = emptySet()): List<SyntaxToken> {
         if (rawLine.isEmpty()) return emptyList()
         val trimmedStart = rawLine.trimStart()
@@ -136,16 +154,21 @@ object SyntaxHighlighter {
             val wsTok = match.groups[6]?.value
 
             val nextPos = match.range.last + 1
-            val afterSlice = if (nextPos < codePart.length) codePart.substring(nextPos) else ""
 
             val type = when {
                 wsTok != null -> SyntaxTokenType.PLAIN
                 strTok != null -> SyntaxTokenType.STRING
                 numTok != null -> SyntaxTokenType.NUMBER
                 idTok != null -> {
+                    var lookahead = nextPos
+                    while (lookahead < codePart.length && codePart[lookahead].isWhitespace()) {
+                        lookahead++
+                    }
+                    val nextChar = if (lookahead < codePart.length) codePart[lookahead] else '\u0000'
                     when {
-                        afterSlice.trimStart().startsWith("(") -> SyntaxTokenType.FUNCTION
-                        Regex("""^\s*=(?!=)""").containsMatchIn(afterSlice) -> SyntaxTokenType.VARIABLE
+                        nextChar == '(' -> SyntaxTokenType.FUNCTION
+                        nextChar == '=' && (lookahead + 1 >= codePart.length || codePart[lookahead + 1] != '=') ->
+                            SyntaxTokenType.VARIABLE
                         KEYWORDS.contains(full) -> SyntaxTokenType.KEYWORD
                         CONSTANTS.contains(full) || MathFunctions.CONSTANTS.containsKey(full) -> SyntaxTokenType.CONSTANT
                         MathEngine.LINE_VAR_REGEX.matches(full) -> SyntaxTokenType.VARIABLE
@@ -177,14 +200,20 @@ object SyntaxHighlighter {
         palette: SyntaxPalette,
         scopeNames: Set<String> = emptySet()
     ): AnnotatedString {
+        if (text.isEmpty()) return AnnotatedString("")
+        val key = HighlightCacheKey(text, palette, scopeNames)
+        synchronized(highlightCache) {
+            highlightCache[key]?.let { return it }
+        }
+
         val tokens = tokenize(text, scopeNames)
-        return buildAnnotatedString {
+        val built = buildAnnotatedString {
             for (tok in tokens) {
                 val start = length
                 append(tok.text)
                 val end = length
                 val style = when (tok.type) {
-                    SyntaxTokenType.PLAIN -> SpanStyle(color = palette.plain)
+                    SyntaxTokenType.PLAIN -> null
                     SyntaxTokenType.COMMENT -> SpanStyle(color = palette.comment, fontStyle = FontStyle.Italic)
                     SyntaxTokenType.STRING -> SpanStyle(color = palette.string)
                     SyntaxTokenType.NUMBER -> SpanStyle(color = palette.number)
@@ -196,9 +225,16 @@ object SyntaxHighlighter {
                     SyntaxTokenType.UNIT -> SpanStyle(color = palette.unit)
                     SyntaxTokenType.PUNCTUATION -> SpanStyle(color = palette.punctuation)
                 }
-                addStyle(style, start, end)
+                if (style != null) {
+                    addStyle(style, start, end)
+                }
             }
         }
+
+        synchronized(highlightCache) {
+            highlightCache[key] = built
+        }
+        return built
     }
 
     fun visualTransformation(
